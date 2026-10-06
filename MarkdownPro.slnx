@@ -4,7 +4,9 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Folder Name="/Documents/" />
+  <Folder Name="/Documents/">
+    <File Path="Documents/ImplementationPlan.md" />
+  </Folder>
   <Project Path="MarkdownPro/MarkdownPro (Package)/MarkdownPro (Package).wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5">
     <Deploy />
   </Project>

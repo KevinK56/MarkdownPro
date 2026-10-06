@@ -4,16 +4,1101 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:MarkdownPro"
+    xmlns:models="using:MarkdownPro.Models"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    Title="MarkdownPro">
+    Title="Markdown Pro — Editor &amp; Mermaid Previewer">
 
     <Window.SystemBackdrop>
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <Grid>
+    <Grid x:Name="RootGrid" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="N" Modifiers="Control" Invoked="OnNewFileAccelerator" />
+            <KeyboardAccelerator Key="O" Modifiers="Control" Invoked="OnOpenFileAccelerator" />
+            <KeyboardAccelerator Key="O" Modifiers="Control,Shift" Invoked="OnOpenFolderAccelerator" />
+            <KeyboardAccelerator Key="S" Modifiers="Control" Invoked="OnSaveFileAccelerator" />
+            <KeyboardAccelerator Key="S" Modifiers="Control,Shift" Invoked="OnSaveAsFileAccelerator" />
+            <KeyboardAccelerator Key="P" Modifiers="Control" Invoked="OnPrintAccelerator" />
+            <KeyboardAccelerator Key="B" Modifiers="Control" Invoked="OnBoldAccelerator" />
+            <KeyboardAccelerator Key="I" Modifiers="Control" Invoked="OnItalicAccelerator" />
+        </Grid.KeyboardAccelerators>
 
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- TOP MENU BAR & VIEW SWITCHER -->
+        <Border x:Name="TopToolbarBorder"
+                Grid.Row="0"
+                Padding="8,4,12,4"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,0,0,1"
+                Background="{ThemeResource LayerFillColorDefaultBrush}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: Native Windows MenuBar (File | Tools | Preferences) -->
+                <MenuBar Grid.Column="0" VerticalAlignment="Center">
+                    <MenuBarItem Title="File">
+                        <MenuFlyoutItem Text="New Document" Click="NewDocument_Click" KeyboardAcceleratorTextOverride="Ctrl+N">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE710;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Open File..." Click="OpenFile_Click" KeyboardAcceleratorTextOverride="Ctrl+O">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE8E5;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Open Folder..." Click="OpenFolder_Click" KeyboardAcceleratorTextOverride="Ctrl+Shift+O">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE8B7;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Save" Click="SaveDocument_Click" KeyboardAcceleratorTextOverride="Ctrl+S">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE74E;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Save As..." Click="SaveAsDocument_Click" KeyboardAcceleratorTextOverride="Ctrl+Shift+S">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE792;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutSubItem Text="Export">
+                            <MenuFlyoutSubItem.Icon>
+                                <FontIcon Glyph="&#xE896;" />
+                            </MenuFlyoutSubItem.Icon>
+                            <MenuFlyoutItem Text="Markdown (.md)..." Click="ExportMarkdown_Click">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xE8A5;" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="HTML Document (.html)..." Click="ExportHtml_Click">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xE943;" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="Export PDF (.pdf)..." Click="ExportPdf_Click">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xEA90;" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="Copy Rendered HTML" Click="CopyRenderedHtml_Click">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xE8C8;" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutItem Text="Print..." Click="PrintDialog_Click" KeyboardAcceleratorTextOverride="Ctrl+P">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE749;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuBarItem>
+
+                    <MenuBarItem Title="Tools">
+                        <MenuFlyoutItem Text="Markdown Editor" Click="NavEditor_Click">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE70F;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Bulk Update (.md)..." Click="NavBulk_Click">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE8C8;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Help &amp; Markdown Syntax" Click="NavHelp_Click">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE897;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Mermaid v11.4.0 Guide" Click="NavMermaid_Click">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE9D9;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutSubItem Text="Insert Snippet">
+                            <MenuFlyoutSubItem.Icon>
+                                <FontIcon Glyph="&#xE943;" />
+                            </MenuFlyoutSubItem.Icon>
+                            <MenuFlyoutItem Text="Bold (**text**)" Click="InsertBold_Click" KeyboardAcceleratorTextOverride="Ctrl+B" />
+                            <MenuFlyoutItem Text="Italic (*text*)" Click="InsertItalic_Click" KeyboardAcceleratorTextOverride="Ctrl+I" />
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="Markdown Table" Click="InsertTableSnippet_Click" />
+                            <MenuFlyoutItem Text="Mermaid Diagram" Click="InsertMermaidSnippet_Click" />
+                            <MenuFlyoutItem Text="PDF Page Break Divider" Click="InsertPageBreakSnippet_Click" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutItem Text="Clear Editor Workspace..." Click="ClearEditor_Click">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE74D;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuBarItem>
+
+                    <MenuBarItem Title="Preferences">
+                        <ToggleMenuFlyoutItem x:Name="MenuShowSidebar"
+                                              Text="Show Explorer Sidebar"
+                                              IsChecked="True"
+                                              Click="ToggleSidebar_Click">
+                            <ToggleMenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE700;" />
+                            </ToggleMenuFlyoutItem.Icon>
+                        </ToggleMenuFlyoutItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutSubItem Text="Preview Theme">
+                            <MenuFlyoutSubItem.Icon>
+                                <FontIcon Glyph="&#xE790;" />
+                            </MenuFlyoutSubItem.Icon>
+                            <RadioMenuFlyoutItem x:Name="MenuThemeLight"
+                                                 Text="Light Preview"
+                                                 GroupName="PreviewThemeGroup"
+                                                 IsChecked="True"
+                                                 Click="MenuThemeLight_Click" />
+                            <RadioMenuFlyoutItem x:Name="MenuThemeDark"
+                                                 Text="Dark Preview"
+                                                 GroupName="PreviewThemeGroup"
+                                                 Click="MenuThemeDark_Click" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Set as Default App for .md Files..." Click="SetDefaultMdApp_Click">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE77A;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuBarItem>
+                </MenuBar>
+
+                <!-- Right: Only the Editor and Preview View Buttons -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                            CornerRadius="6"
+                            Padding="3"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <Button x:Name="ModeEditorOnlyBtn"
+                                    Click="ModeEditorOnly_Click"
+                                    ToolTipService.ToolTip="Editor Only View"
+                                    Padding="10,4"
+                                    BorderThickness="0">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <FontIcon Glyph="&#xE70F;" FontSize="12" />
+                                    <TextBlock Text="Editor" FontSize="12" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ModeSplitPreviewBtn"
+                                    Click="ModeSplitPreview_Click"
+                                    ToolTipService.ToolTip="Split Editor &amp; Live Preview (50% / 50%)"
+                                    Padding="10,4"
+                                    BorderThickness="0">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <FontIcon Glyph="&#xE745;" FontSize="12" />
+                                    <TextBlock Text="Split Preview" FontSize="12" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ModeFullPreviewBtn"
+                                    Click="ModeFullPreview_Click"
+                                    ToolTipService.ToolTip="Open Full Preview Focus Mode"
+                                    Padding="10,4"
+                                    BorderThickness="0">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <FontIcon Glyph="&#xE740;" FontSize="12" />
+                                    <TextBlock Text="Full Preview" FontSize="12" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- NOTIFICATION INFOBAR -->
+        <InfoBar x:Name="AppInfoBar"
+                 Grid.Row="1"
+                 IsOpen="False"
+                 IsClosable="True"
+                 Margin="16,6,16,0" />
+
+        <!-- MAIN WORKSPACE GRID -->
+        <Grid x:Name="WorkspaceGrid" Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <!-- Col 0: Explorer Sidebar -->
+                <ColumnDefinition x:Name="SidebarColumn" Width="250" />
+                <!-- Col 1: Left/Main Authoring Workspace -->
+                <ColumnDefinition x:Name="AuthoringColumn" Width="*" />
+                <!-- Col 2: Right Live Preview Pane (Starts Collapsed for Editor-Only startup) -->
+                <ColumnDefinition x:Name="PreviewColumn" Width="0" />
+            </Grid.ColumnDefinitions>
+
+            <!-- COLUMN 0: LEFT EXPLORER SIDEBAR (Open Documents & Open Folders) -->
+            <Border x:Name="SidebarBorder"
+                    Grid.Column="0"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="0,0,1,0"
+                    Background="{ThemeResource LayerFillColorAltBrush}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="180" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Open Documents Header -->
+                    <Border Grid.Row="0"
+                            Padding="12,8"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="0,0,0,1">
+                        <Grid>
+                            <TextBlock Text="OPEN DOCUMENTS"
+                                       FontSize="11"
+                                       FontWeight="Bold"
+                                       Opacity="0.7"
+                                       VerticalAlignment="Center" />
+                            <Button HorizontalAlignment="Right"
+                                    Click="NewDocument_Click"
+                                    ToolTipService.ToolTip="New Markdown Document (Ctrl+N)"
+                                    Padding="4,2"
+                                    Background="Transparent"
+                                    BorderThickness="0">
+                                <FontIcon Glyph="&#xE710;" FontSize="12" />
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- Open Documents List -->
+                    <ListView x:Name="OpenDocumentsListView"
+                              Grid.Row="1"
+                              SelectionMode="Single"
+                              SelectionChanged="OpenDocumentsListView_SelectionChanged"
+                              Padding="4">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:MarkdownDocument">
+                                <Grid ToolTipService.ToolTip="{x:Bind ToolTipPath, Mode=OneWay}" Padding="2,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Grid.Column="0"
+                                              Glyph="&#xE8A5;"
+                                              FontSize="13"
+                                              Margin="0,0,8,0"
+                                              VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{x:Bind DisplayTitle, Mode=OneWay}"
+                                               FontSize="12"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center" />
+                                    <Button Grid.Column="2"
+                                            Tag="{x:Bind}"
+                                            Click="CloseDocumentFromSidebar_Click"
+                                            ToolTipService.ToolTip="Close Document"
+                                            Padding="4,2"
+                                            Background="Transparent"
+                                            BorderThickness="0">
+                                        <FontIcon Glyph="&#xE711;" FontSize="10" />
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <!-- Open Folder Header -->
+                    <Border Grid.Row="2"
+                            Padding="12,8"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="OPEN FOLDER"
+                                           FontSize="11"
+                                           FontWeight="Bold"
+                                           Opacity="0.7" />
+                                <TextBlock x:Name="CurrentFolderNameText"
+                                           Text="No folder opened"
+                                           FontSize="11"
+                                           Opacity="0.55"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                                <Button Click="NewFileInFolder_Click"
+                                        ToolTipService.ToolTip="New .md File in Open Folder"
+                                        Padding="5,3"
+                                        Background="Transparent"
+                                        BorderThickness="0">
+                                    <FontIcon Glyph="&#xE710;" FontSize="12" />
+                                </Button>
+                                <Button Click="RefreshFolder_Click"
+                                        ToolTipService.ToolTip="Refresh Folder Tree"
+                                        Padding="5,3"
+                                        Background="Transparent"
+                                        BorderThickness="0">
+                                    <FontIcon Glyph="&#xE72C;" FontSize="12" />
+                                </Button>
+                                <Button Click="OpenFolder_Click"
+                                        ToolTipService.ToolTip="Choose Folder..."
+                                        Padding="5,3"
+                                        Background="Transparent"
+                                        BorderThickness="0">
+                                    <FontIcon Glyph="&#xE8B7;" FontSize="12" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Folder Files List / Tree -->
+                    <Grid Grid.Row="3">
+                        <StackPanel x:Name="EmptyFolderPlaceholder"
+                                    VerticalAlignment="Center"
+                                    HorizontalAlignment="Center"
+                                    Spacing="8"
+                                    Padding="16">
+                            <FontIcon Glyph="&#xE8B7;" FontSize="28" Opacity="0.4" HorizontalAlignment="Center" />
+                            <TextBlock Text="Open a folder to browse and edit Markdown files."
+                                       FontSize="12"
+                                       Opacity="0.6"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap" />
+                            <Button Content="Open Folder..."
+                                    Click="OpenFolder_Click"
+                                    HorizontalAlignment="Center" />
+                        </StackPanel>
+
+                        <ListView x:Name="FolderFilesListView"
+                                  Visibility="Collapsed"
+                                  SelectionMode="Single"
+                                  ItemClick="FolderFilesListView_ItemClick"
+                                  IsItemClickEnabled="True"
+                                  Padding="4">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="models:FolderNode">
+                                    <Grid ToolTipService.ToolTip="{x:Bind FullPath}" Padding="2,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <FontIcon Grid.Column="0"
+                                                  Glyph="{x:Bind IconGlyph}"
+                                                  FontSize="13"
+                                                  Margin="0,0,8,0"
+                                                  VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{x:Bind Name}"
+                                                   FontSize="12"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- COLUMN 1: LEFT/CENTER AUTHORING WORKSPACE (4 Sections) -->
+            <Grid x:Name="AuthoringWorkspaceGrid" Grid.Column="1" Padding="12">
+                <!-- SECTION 1: MULTI-TAB DARK CODE EDITOR -->
+                <Grid x:Name="EditorSectionGrid" Visibility="Visible">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Document Tab Bar -->
+                    <TabView x:Name="DocumentTabView"
+                             Grid.Row="0"
+                             AddTabButtonClick="DocumentTabView_AddTabButtonClick"
+                             TabCloseRequested="DocumentTabView_TabCloseRequested"
+                             SelectionChanged="DocumentTabView_SelectionChanged"
+                             CanDragTabs="True"
+                             CanReorderTabs="True"
+                             TabWidthMode="SizeToContent" />
+
+                    <!-- Dark Editor Header Bar (#1e1e1e / #252526) -->
+                    <Border Grid.Row="1"
+                            Background="#252526"
+                            CornerRadius="6,6,0,0"
+                            Padding="12,6"
+                            BorderBrush="#333333"
+                            BorderThickness="1,1,1,0">
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="EDITOR"
+                                       Foreground="#D4D4D4"
+                                       FontFamily="Cascadia Mono, JetBrains Mono, Consolas, monospace"
+                                       FontSize="11"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center" />
+                            <TextBlock x:Name="ActiveDocHeaderPathText"
+                                       Text="Welcome.md"
+                                       Foreground="#858585"
+                                       FontFamily="Cascadia Mono, Consolas, monospace"
+                                       FontSize="11"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Dark Code Editor Box (#1e1e1e) with Line Numbers Gutter -->
+                    <Border Grid.Row="2"
+                            Background="#1E1E1E"
+                            BorderBrush="#333333"
+                            BorderThickness="1,0,1,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Synchronized Line Numbers Gutter -->
+                            <Border Grid.Column="0"
+                                    Background="#1E1E1E"
+                                    BorderBrush="#2D2D2D"
+                                    BorderThickness="0,0,1,0"
+                                    Padding="10,20,8,20"
+                                    MinWidth="46">
+                                <ScrollViewer x:Name="LineNumbersScrollViewer"
+                                              VerticalScrollBarVisibility="Hidden"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              IsHitTestVisible="False">
+                                    <TextBlock x:Name="LineNumbersTextBlock"
+                                               Text="1"
+                                               Foreground="#858585"
+                                               FontFamily="Cascadia Mono, JetBrains Mono, Fira Code, Consolas, monospace"
+                                               FontSize="14"
+                                               TextAlignment="Right" />
+                                </ScrollViewer>
+                            </Border>
+
+                            <!-- Main Code Editor TextBox (#mdInput) -->
+                            <TextBox x:Name="EditorTextBox"
+                                     Grid.Column="1"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     IsSpellCheckEnabled="False"
+                                     PlaceholderText="Write your markdown here..."
+                                     Background="#1E1E1E"
+                                     Foreground="#D4D4D4"
+                                     BorderThickness="0"
+                                     Padding="16,20,20,20"
+                                     FontFamily="Cascadia Mono, JetBrains Mono, Fira Code, Consolas, monospace"
+                                     FontSize="14"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     TextChanged="EditorTextBox_TextChanged"
+                                     SelectionChanged="EditorTextBox_SelectionChanged"
+                                     KeyDown="EditorTextBox_KeyDown"
+                                     Loaded="EditorTextBox_Loaded">
+                                <TextBox.Resources>
+                                    <SolidColorBrush x:Key="TextControlBackground" Color="#1E1E1E" />
+                                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#1E1E1E" />
+                                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#1E1E1E" />
+                                    <SolidColorBrush x:Key="TextControlForeground" Color="#D4D4D4" />
+                                    <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#D4D4D4" />
+                                    <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#D4D4D4" />
+                                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                                </TextBox.Resources>
+                            </TextBox>
+                        </Grid>
+                    </Border>
+
+                    <!-- Editor Status Bar -->
+                    <Border Grid.Row="3"
+                            Background="#007ACC"
+                            CornerRadius="0,0,6,6"
+                            Padding="12,4">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="StatusFilePathText"
+                                       Text="Welcome.md (Starter Workspace)"
+                                       Foreground="White"
+                                       FontSize="11"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                                <TextBlock x:Name="StatusCursorText" Text="Ln 1, Col 1" Foreground="White" FontSize="11" />
+                                <TextBlock x:Name="StatusStatsText" Text="Words: 0 | Chars: 0" Foreground="White" FontSize="11" />
+                                <TextBlock Text="UTF-8" Foreground="White" FontSize="11" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- SECTION 2: BULK UPDATE (BULK IMPORT .md) -->
+                <Border x:Name="BulkSectionGrid"
+                        Visibility="Collapsed"
+                        CornerRadius="8"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Card Header -->
+                        <Border Grid.Row="0" Background="#0D6EFD" CornerRadius="8,8,0,0" Padding="16,10">
+                            <Grid>
+                                <TextBlock Text="BULK IMPORT (.md)"
+                                           Foreground="White"
+                                           FontFamily="Cascadia Mono, Consolas, monospace"
+                                           FontWeight="Bold"
+                                           FontSize="12"
+                                           VerticalAlignment="Center" />
+                                <Button HorizontalAlignment="Right"
+                                        Click="ClearBulkFiles_Click"
+                                        Padding="8,4"
+                                        Background="Transparent"
+                                        Foreground="White"
+                                        BorderBrush="#80FFFFFF">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE74D;" FontSize="12" Foreground="White" />
+                                        <TextBlock Text="Clear All" FontSize="11" Foreground="White" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <!-- Card Body -->
+                        <Grid Grid.Row="1" Padding="24" RowSpacing="14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0"
+                                    Background="#CFF4FC"
+                                    BorderBrush="#B6EFFB"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Padding="12,10">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE946;" Foreground="#055160" FontSize="14" />
+                                    <TextBlock Text="Select up to 20 Markdown files. Use the arrows to reorder them before appending."
+                                               Foreground="#055160"
+                                               FontSize="12"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <StackPanel Grid.Row="1" Spacing="4">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Button Click="SelectBulkFiles_Click" Padding="12,7">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon Glyph="&#xE8E5;" FontSize="14" />
+                                            <TextBlock Text="Choose Markdown Files (.md)..." FontWeight="SemiBold" />
+                                        </StackPanel>
+                                    </Button>
+                                    <TextBlock x:Name="BulkCountStatusText"
+                                               Text="0 / 20 files queued"
+                                               VerticalAlignment="Center"
+                                               FontSize="12"
+                                               Opacity="0.7" />
+                                </StackPanel>
+                                <TextBlock Text="Maximum 20 files allowed. Add more any time."
+                                           FontSize="11"
+                                           Opacity="0.6" />
+                            </StackPanel>
+
+                            <!-- File Queue List -->
+                            <Border Grid.Row="2"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Background="{ThemeResource LayerFillColorAltBrush}">
+                                <Grid>
+                                    <TextBlock x:Name="EmptyBulkListText"
+                                               Text="No files selected yet."
+                                               FontStyle="Italic"
+                                               Opacity="0.6"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+
+                                    <ListView x:Name="BulkFileListView"
+                                              SelectionMode="None"
+                                              Padding="6">
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate x:DataType="models:BulkFileItem">
+                                                <Border Padding="8,6"
+                                                        Margin="0,2"
+                                                        CornerRadius="4"
+                                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                        BorderThickness="1">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <Border Grid.Column="0"
+                                                                Background="#6C757D"
+                                                                CornerRadius="4"
+                                                                Padding="7,2"
+                                                                Margin="0,0,10,0"
+                                                                VerticalAlignment="Center">
+                                                            <TextBlock Text="{x:Bind IndexBadge, Mode=OneWay}"
+                                                                       Foreground="White"
+                                                                       FontSize="11"
+                                                                       FontWeight="Bold" />
+                                                        </Border>
+
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="{x:Bind FileName, Mode=OneWay}"
+                                                                   ToolTipService.ToolTip="{x:Bind FullPath, Mode=OneWay}"
+                                                                   VerticalAlignment="Center"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   FontSize="13" />
+
+                                                        <Border Grid.Column="2"
+                                                                CornerRadius="4"
+                                                                Padding="8,2"
+                                                                Margin="10,0"
+                                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                                BorderThickness="1"
+                                                                VerticalAlignment="Center">
+                                                            <TextBlock Text="{x:Bind SizeText, Mode=OneWay}"
+                                                                       FontSize="11" />
+                                                        </Border>
+
+                                                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4">
+                                                            <Button Tag="{x:Bind}"
+                                                                    IsEnabled="{x:Bind CanMoveUp, Mode=OneWay}"
+                                                                    Click="MoveBulkFileUp_Click"
+                                                                    ToolTipService.ToolTip="Move Up"
+                                                                    Padding="7,4">
+                                                                <TextBlock Text="↑" FontWeight="Bold" />
+                                                            </Button>
+                                                            <Button Tag="{x:Bind}"
+                                                                    IsEnabled="{x:Bind CanMoveDown, Mode=OneWay}"
+                                                                    Click="MoveBulkFileDown_Click"
+                                                                    ToolTipService.ToolTip="Move Down"
+                                                                    Padding="7,4">
+                                                                <TextBlock Text="↓" FontWeight="Bold" />
+                                                            </Button>
+                                                            <Button Tag="{x:Bind}"
+                                                                    Click="RemoveBulkFile_Click"
+                                                                    ToolTipService.ToolTip="Remove File"
+                                                                    Padding="7,4"
+                                                                    Foreground="#DC3545">
+                                                                <TextBlock Text="✕" FontWeight="Bold" />
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                </Grid>
+                            </Border>
+
+                            <Button x:Name="ProcessBulkBtn"
+                                    Grid.Row="3"
+                                    IsEnabled="False"
+                                    Click="ProcessBulkFiles_Click"
+                                    HorizontalAlignment="Stretch"
+                                    Background="#0D6EFD"
+                                    Foreground="White"
+                                    FontWeight="Bold"
+                                    Padding="12,10">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE8F4;" FontSize="14" Foreground="White" />
+                                    <TextBlock Text="Extract &amp; Append Files" Foreground="White" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- SECTION 3: HELP & SYNTAX -->
+                <Border x:Name="HelpSectionGrid"
+                        Visibility="Collapsed"
+                        CornerRadius="8"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Background="#6C757D" CornerRadius="8,8,0,0" Padding="16,10">
+                            <TextBlock Text="HELP &amp; MARKDOWN SYNTAX"
+                                       Foreground="White"
+                                       FontFamily="Cascadia Mono, Consolas, monospace"
+                                       FontWeight="Bold"
+                                       FontSize="12" />
+                        </Border>
+
+                        <ScrollViewer Grid.Row="1" Padding="24">
+                            <StackPanel Spacing="16">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Editor Overview" FontSize="15" FontWeight="Bold" />
+                                    <TextBlock Text="Markdown Pro is a dual-pane real-time markdown editor with comprehensive support for rich text, tables, export features, and dynamic diagramming."
+                                               Opacity="0.75"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+
+                                <MenuFlyoutSeparator />
+
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="PDF Page Breaks (Export Paging)" FontSize="15" FontWeight="Bold" />
+                                    <TextBlock Text="To introduce a clean page break in your exported PDF or printed document, click the box below to copy this exact HTML bracket:"
+                                               Opacity="0.75"
+                                               TextWrapping="Wrap" />
+
+                                    <Button Click="CopyPageBreakBracket_Click"
+                                            HorizontalAlignment="Stretch"
+                                            Padding="14,12"
+                                            ToolTipService.ToolTip="Click to Copy Page Break HTML">
+                                        <TextBlock Text="&lt;div style=&quot;page-break-after: always;&quot;&gt;&lt;/div&gt;"
+                                                   FontFamily="Cascadia Mono, Consolas, monospace"
+                                                   FontWeight="SemiBold" />
+                                    </Button>
+
+                                    <TextBlock Text="Tip: Bulk file appends insert this divider automatically between files."
+                                               FontSize="12"
+                                               Opacity="0.65" />
+                                </StackPanel>
+
+                                <MenuFlyoutSeparator />
+
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="Standard Markdown Syntax (Click any row to copy)" FontSize="15" FontWeight="Bold" />
+
+                                    <StackPanel Spacing="4">
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopySyntaxRow_Click" Tag="**text**">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Bold" FontWeight="Bold" />
+                                                <TextBlock Grid.Column="1" Text="**text**" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopySyntaxRow_Click" Tag="*text*">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Italic" FontStyle="Italic" />
+                                                <TextBlock Grid.Column="1" Text="*text*" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopySyntaxRow_Click" Tag="# Heading 1">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Header 1" />
+                                                <TextBlock Grid.Column="1" Text="# Heading 1" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopySyntaxRow_Click" Tag="## Heading 2">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Header 2" />
+                                                <TextBlock Grid.Column="1" Text="## Heading 2" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopySyntaxRow_Click" Tag="- Item">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Unordered List" />
+                                                <TextBlock Grid.Column="1" Text="- Item" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopySyntaxRow_Click" Tag="1. Item">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Ordered List" />
+                                                <TextBlock Grid.Column="1" Text="1. Item" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopySyntaxRow_Click" Tag="&gt; Quote">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Blockquote" />
+                                                <TextBlock Grid.Column="1" Text="&gt; Quote" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopySyntaxRow_Click" Tag="`code`">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Inline Code" />
+                                                <TextBlock Grid.Column="1" Text="`code`" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
+                <!-- SECTION 4: MERMAID GUIDE (MERMAID v11.4.0) -->
+                <Border x:Name="MermaidSectionGrid"
+                        Visibility="Collapsed"
+                        CornerRadius="8"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Background="#212529" CornerRadius="8,8,0,0" Padding="16,10">
+                            <TextBlock Text="MERMAID v11.4.0 (LOCAL OFFLINE ENGINE)"
+                                       Foreground="White"
+                                       FontFamily="Cascadia Mono, Consolas, monospace"
+                                       FontWeight="Bold"
+                                       FontSize="12" />
+                        </Border>
+
+                        <ScrollViewer Grid.Row="1" Padding="24">
+                            <StackPanel Spacing="18">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="What is Mermaid?" FontSize="15" FontWeight="Bold" />
+                                    <TextBlock Text="Mermaid is a JavaScript-based diagramming and charting tool that uses Markdown-inspired text definitions and a renderer to create and modify complex diagrams dynamically."
+                                               Opacity="0.75"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+
+                                <MenuFlyoutSeparator />
+
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="1. Node Shapes &amp; Syntax (Click any row to copy)" FontSize="15" FontWeight="Bold" />
+                                    <TextBlock Text="Customize individual node styles and boundaries using specific brackets:"
+                                               Opacity="0.75"
+                                               TextWrapping="Wrap" />
+
+                                    <StackPanel Spacing="4">
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopyMermaidShape_Click" Tag="id[Rectangle]">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Rectangle" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="1" Text="id[Text]" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                                <TextBlock Grid.Column="2" Text="id1[Process Started]" Foreground="#0969DA" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopyMermaidShape_Click" Tag="id(Round Edges)">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Round Edges" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="1" Text="id(Text)" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                                <TextBlock Grid.Column="2" Text="id2(Start Operation)" Foreground="#0969DA" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopyMermaidShape_Click" Tag="id([Stadium])">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Stadium Shape" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="1" Text="id([Text])" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                                <TextBlock Grid.Column="2" Text="id3([Begin / End])" Foreground="#0969DA" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopyMermaidShape_Click" Tag="id[[Subroutine]]">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Subroutine" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="1" Text="id[[Text]]" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                                <TextBlock Grid.Column="2" Text="id4[[Call Service]]" Foreground="#0969DA" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopyMermaidShape_Click" Tag="id[(Database)]">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Cylinder (Database)" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="1" Text="id[(Text)]" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                                <TextBlock Grid.Column="2" Text="id5[(SQL Main DB)]" Foreground="#0969DA" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopyMermaidShape_Click" Tag="id((Circle))">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Circle" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="1" Text="id((Text))" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                                <TextBlock Grid.Column="2" Text="id6((Core State))" Foreground="#0969DA" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopyMermaidShape_Click" Tag="id{Decision}">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Rhombus (Decision)" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="1" Text="id{Text}" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                                <TextBlock Grid.Column="2" Text="id7{Is Active?}" Foreground="#0969DA" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopyMermaidShape_Click" Tag="id{{Hexagon}}">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Hexagon" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="1" Text="id{{Text}}" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                                <TextBlock Grid.Column="2" Text="id8{{Audit Loop}}" Foreground="#0969DA" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopyMermaidShape_Click" Tag="id[/Parallelogram/]">
+                                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Parallelogram" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="1" Text="id[/Text/]" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                                <TextBlock Grid.Column="2" Text="id9[/Input Data/]" Foreground="#0969DA" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            </Grid>
+                                        </Button>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <MenuFlyoutSeparator />
+
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="2. Node Styling &amp; Custom Themes" FontSize="15" FontWeight="Bold" />
+                                    <Border CornerRadius="6"
+                                            Padding="14"
+                                            Background="{ThemeResource LayerFillColorAltBrush}"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                            BorderThickness="1">
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="STYLE ASSIGNMENT EXAMPLES"
+                                                       FontSize="11"
+                                                       FontWeight="Bold"
+                                                       Opacity="0.7"
+                                                       FontFamily="Cascadia Mono, Consolas, monospace" />
+                                            <TextBlock IsTextSelectionEnabled="True"
+                                                       FontFamily="Cascadia Mono, Consolas, monospace"
+                                                       FontSize="12"
+                                                       Text="style id1 fill:#f9f,stroke:#333,stroke-width:4px&#x0a;style id5 fill:#bbf,stroke:#f66,stroke-width:2px,stroke-dasharray: 5 5" />
+                                            <TextBlock Text="Structural classes for bulk re-use:" FontSize="12" Opacity="0.7" />
+                                            <TextBlock IsTextSelectionEnabled="True"
+                                                       FontFamily="Cascadia Mono, Consolas, monospace"
+                                                       FontSize="12"
+                                                       Text="classDef greenNode fill:#d4edda,stroke:#28a745,stroke-width:2px;&#x0a;class id2,id3 greenNode;" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+
+                                <MenuFlyoutSeparator />
+
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="3. Comprehensive Diagrams &amp; Templates" FontSize="15" FontWeight="Bold" />
+
+                                    <!-- Flowchart Template -->
+                                    <Border CornerRadius="6" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                        <StackPanel>
+                                            <Border Padding="12,6" Background="{ThemeResource LayerFillColorAltBrush}">
+                                                <Grid>
+                                                    <TextBlock Text="FLOWCHART" FontFamily="Cascadia Mono, Consolas, monospace" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
+                                                    <Button Content="Copy Template" HorizontalAlignment="Right" Click="CopyFlowchartTemplate_Click" FontSize="11" Padding="8,3" />
+                                                </Grid>
+                                            </Border>
+                                            <TextBlock Padding="12"
+                                                       FontFamily="Cascadia Mono, Consolas, monospace"
+                                                       FontSize="12"
+                                                       IsTextSelectionEnabled="True"
+                                                       Text="graph TD&#x0a;  A[Start] --&gt; B{Decision}&#x0a;  B --&gt;|Yes| C[Success]&#x0a;  B --&gt;|No| D[Retry]&#x0a;  style C fill:#d4edda,stroke:#28a745" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Sequence Diagram Template -->
+                                    <Border CornerRadius="6" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                        <StackPanel>
+                                            <Border Padding="12,6" Background="{ThemeResource LayerFillColorAltBrush}">
+                                                <Grid>
+                                                    <TextBlock Text="SEQUENCE DIAGRAM" FontFamily="Cascadia Mono, Consolas, monospace" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
+                                                    <Button Content="Copy Template" HorizontalAlignment="Right" Click="CopySequenceTemplate_Click" FontSize="11" Padding="8,3" />
+                                                </Grid>
+                                            </Border>
+                                            <TextBlock Padding="12"
+                                                       FontFamily="Cascadia Mono, Consolas, monospace"
+                                                       FontSize="12"
+                                                       IsTextSelectionEnabled="True"
+                                                       Text="sequenceDiagram&#x0a;  Alice-&gt;&gt;John: Hello John, how are you?&#x0a;  John--&gt;&gt;Alice: Great! Thanks.&#x0a;  Alice-&gt;&gt;John: See you soon!" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- ER Diagram Template -->
+                                    <Border CornerRadius="6" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                        <StackPanel>
+                                            <Border Padding="12,6" Background="{ThemeResource LayerFillColorAltBrush}">
+                                                <Grid>
+                                                    <TextBlock Text="ENTITY RELATIONSHIP" FontFamily="Cascadia Mono, Consolas, monospace" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
+                                                    <Button Content="Copy Template" HorizontalAlignment="Right" Click="CopyErTemplate_Click" FontSize="11" Padding="8,3" />
+                                                </Grid>
+                                            </Border>
+                                            <TextBlock Padding="12"
+                                                       FontFamily="Cascadia Mono, Consolas, monospace"
+                                                       FontSize="12"
+                                                       IsTextSelectionEnabled="True"
+                                                       Text="erDiagram&#x0a;  CUSTOMER ||--o{ ORDER : places&#x0a;  ORDER ||--|{ LINE_ITEM : contains&#x0a;  CUSTOMER {&#x0a;    string name&#x0a;    string email&#x0a;  }" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- COLUMN 2: LIVE PREVIEW CARD -->
+            <Grid x:Name="PreviewContainerGrid" Grid.Column="2" Padding="0,12,12,12" Visibility="Collapsed">
+                <Border x:Name="PreviewCardBorder"
+                        CornerRadius="8"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        Background="#FFFFFF">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Preview Card Header -->
+                        <Border x:Name="PreviewHeaderBorder"
+                                Grid.Row="0"
+                                Background="#F8F9FA"
+                                CornerRadius="8,8,0,0"
+                                Padding="16,8"
+                                BorderBrush="#E9ECEF"
+                                BorderThickness="0,0,0,1">
+                            <Grid>
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <FontIcon Glyph="&#xE7B3;" FontSize="14" Foreground="#0969DA" />
+                                    <TextBlock x:Name="LivePreviewHeaderTitle"
+                                               Text="LIVE PREVIEW"
+                                               FontWeight="Bold"
+                                               FontSize="12"
+                                               Foreground="#24292E" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <TextBlock x:Name="RenderTimeText"
+                                               Text="Rendered: just now"
+                                               FontSize="11"
+                                               Foreground="#6C757D"
+                                               VerticalAlignment="Center" />
+                                    <Button x:Name="ExpandPreviewBtn"
+                                            Click="ToggleExpandPreview_Click"
+                                            ToolTipService.ToolTip="Expand Focus View"
+                                            Padding="7,4">
+                                        <FontIcon x:Name="ExpandPreviewIcon" Glyph="&#xE740;" FontSize="12" />
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- WebView2 Host (#renderedOutput) -->
+                        <WebView2 x:Name="PreviewWebView"
+                                  Grid.Row="1"
+                                  DefaultBackgroundColor="White" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
     </Grid>
 </Window>

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -16,7 +16,7 @@
   <mp:PhoneIdentity PhoneProductId="e0daf30c-adda-4e5d-8dd2-fda2241f8dd5" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>MarkdownPro (Package)</DisplayName>
+    <DisplayName>Markdown Pro</DisplayName>
     <PublisherDisplayName>Kevin</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
   </Properties>
@@ -35,14 +35,27 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="MarkdownPro (Package)"
-        Description="MarkdownPro (Package)"
+        DisplayName="Markdown Pro"
+        Description="Markdown Pro Editor &amp; Mermaid Previewer"
         BackgroundColor="transparent"
         Square150x150Logo="Images\Square150x150Logo.png"
         Square44x44Logo="Images\Square44x44Logo.png">
         <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Images\SplashScreen.png" />
       </uap:VisualElements>
+      <Extensions>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="markdown">
+            <uap:DisplayName>Markdown Document</uap:DisplayName>
+            <uap:SupportedFileTypes>
+              <uap:FileType ContentType="text/markdown">.md</uap:FileType>
+              <uap:FileType ContentType="text/markdown">.markdown</uap:FileType>
+              <uap:FileType ContentType="text/markdown">.mdown</uap:FileType>
+              <uap:FileType ContentType="text/markdown">.mkd</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
     </Application>
   </Applications>
 
