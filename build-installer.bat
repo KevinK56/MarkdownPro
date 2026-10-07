@@ -10,18 +10,17 @@ set "VERSION=1.0.0"
 if not "%~1"=="" set "VERSION=%~1"
 
 set "PROJECT=MarkdownPro\MarkdownPro\MarkdownPro.csproj"
+set "BUILD_OUT=MarkdownPro\MarkdownPro\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64"
 set "PUBLISH_DIR=publish\win-x64"
 set "OUTPUT_DIR=installer_output"
 
 if not exist "MarkdownPro\MarkdownPro\Assets\app.ico" (
-    echo [1/3] Generating application icon...
+    echo [1/4] Generating application icon...
     powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0generate-icon.ps1"
 )
 
-echo [2/3] Publishing self-contained WinUI 3 application (v%VERSION%)...
-if exist "%PUBLISH_DIR%" rmdir /s /q "%PUBLISH_DIR%"
-
-dotnet publish "%PROJECT%" ^
+echo [2/4] Building self-contained WinUI 3 application (v%VERSION%)...
+dotnet build "%PROJECT%" ^
     -c Release ^
     -r win-x64 ^
     --self-contained true ^
@@ -31,16 +30,26 @@ dotnet publish "%PROJECT%" ^
     -p:PublishTrimmed=false ^
     -p:Version=%VERSION% ^
     -p:AssemblyVersion=%VERSION%.0 ^
-    -p:FileVersion=%VERSION%.0 ^
-    -o "%PUBLISH_DIR%"
+    -p:FileVersion=%VERSION%.0
 
 if errorlevel 1 (
     echo.
-    echo [ERROR] dotnet publish failed!
+    echo [ERROR] dotnet build failed!
     exit /b 1
 )
 
-echo [3/3] Locating Inno Setup 6 Compiler (ISCC.exe)...
+echo [3/4] Staging complete WinUI 3 output (including .pri, .xbf, and Assets\Web) to %PUBLISH_DIR%...
+if exist "%PUBLISH_DIR%" rmdir /s /q "%PUBLISH_DIR%"
+mkdir "%PUBLISH_DIR%"
+xcopy "%BUILD_OUT%\*" "%PUBLISH_DIR%\" /E /I /H /Y >nul
+
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Failed to stage build output!
+    exit /b 1
+)
+
+echo [4/4] Locating Inno Setup 6 Compiler (ISCC.exe)...
 set "ISCC="
 if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" set "ISCC=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
 if exist "%ProgramFiles%\Inno Setup 6\ISCC.exe" set "ISCC=%ProgramFiles%\Inno Setup 6\ISCC.exe"

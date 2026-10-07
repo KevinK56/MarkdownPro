@@ -75,11 +75,12 @@ jobs:
         run: |
           dotnet restore MarkdownPro/MarkdownPro/MarkdownPro.csproj
 
-      - name: Publish Self-Contained WinUI 3 App (win-x64)
+      - name: Build Self-Contained WinUI 3 App (win-x64)
+        shell: pwsh
         env:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
-          dotnet publish MarkdownPro/MarkdownPro/MarkdownPro.csproj `
+          dotnet build MarkdownPro/MarkdownPro/MarkdownPro.csproj `
             -c Release `
             -r win-x64 `
             --self-contained true `
@@ -89,8 +90,9 @@ jobs:
             -p:PublishTrimmed=false `
             -p:Version=$env:VERSION `
             -p:AssemblyVersion=$env:VERSION `
-            -p:FileVersion=$env:VERSION `
-            -o publish/win-x64
+            -p:FileVersion=$env:VERSION
+          New-Item -ItemType Directory -Path "publish/win-x64" -Force | Out-Null
+          Copy-Item -Path "MarkdownPro/MarkdownPro/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/*" -Destination "publish/win-x64" -Recurse -Force
 
       - name: Create Portable ZIP Archive
         shell: pwsh
