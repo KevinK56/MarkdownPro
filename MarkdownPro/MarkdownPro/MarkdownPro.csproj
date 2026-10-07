@@ -11,9 +11,9 @@
     <WinUISDKReferences>false</WinUISDKReferences>
     <Nullable>enable</Nullable>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <Version>2026.10.07.7</Version>
+    <AssemblyVersion>2026.10.07.7</AssemblyVersion>
+    <FileVersion>2026.10.07.7</FileVersion>
     <Authors>KevinK56</Authors>
     <Company>Star Systems</Company>
     <Product>Markdown Pro</Product>

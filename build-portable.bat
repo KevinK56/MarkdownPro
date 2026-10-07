@@ -6,8 +6,10 @@ echo   Markdown Pro — Portable Build Script (Self-Contained WinUI 3 win-x64)
 echo ============================================================================
 echo.
 
-set "VERSION=1.0.0"
-if not "%~1"=="" set "VERSION=%~1"
+set "VERSION=%~1"
+if "%VERSION%"=="" (
+    for /f "delims=" %%V in ('powershell -NoProfile -Command "$d = (Get-Date).ToUniversalTime().ToString('yyyy.MM.dd'); $c = try { [int](git rev-list --count HEAD 2>$null) } catch { 1 }; if (-not $c) { $c = 1 }; Write-Output \"$d.$c\""') do set "VERSION=%%V"
+)
 
 set "PROJECT=MarkdownPro\MarkdownPro\MarkdownPro.csproj"
 set "BUILD_OUT=MarkdownPro\MarkdownPro\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64"
@@ -29,8 +31,8 @@ dotnet build "%PROJECT%" ^
     -p:WindowsAppSDKSelfContained=true ^
     -p:PublishTrimmed=false ^
     -p:Version=%VERSION% ^
-    -p:AssemblyVersion=%VERSION%.0 ^
-    -p:FileVersion=%VERSION%.0
+    -p:AssemblyVersion=%VERSION% ^
+    -p:FileVersion=%VERSION%
 
 if errorlevel 1 (
     echo.

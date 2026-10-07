@@ -63,6 +63,19 @@ namespace MarkdownPro.Services
                     var state = JsonSerializer.Deserialize(json, SessionJsonContext.Default.SessionState);
                     if (state != null)
                     {
+                        if (state.OpenFilePaths != null)
+                        {
+                            state.OpenFilePaths.RemoveAll(p =>
+                                string.IsNullOrWhiteSpace(p) ||
+                                p.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
+                                p.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
+                        }
+                        if (!string.IsNullOrWhiteSpace(state.ActiveFilePath) &&
+                            (state.ActiveFilePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
+                             state.ActiveFilePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            state.ActiveFilePath = null;
+                        }
                         return state;
                     }
                 }

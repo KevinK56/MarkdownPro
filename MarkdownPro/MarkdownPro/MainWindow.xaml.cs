@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -110,7 +110,7 @@ namespace MarkdownPro
             {
                 foreach (string path in _session.OpenFilePaths)
                 {
-                    if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                    if (!string.IsNullOrWhiteSpace(path) && File.Exists(path) && !path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && !path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
                     {
                         OpenOrActivateFile(path, switchToTab: false);
                     }
@@ -308,7 +308,7 @@ namespace MarkdownPro
         {
             foreach (string path in filePaths)
             {
-                if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                if (!string.IsNullOrWhiteSpace(path) && File.Exists(path) && !path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && !path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
                 {
                     OpenOrActivateFile(path, switchToTab: true);
                 }
@@ -1680,7 +1680,7 @@ namespace MarkdownPro
 
             var dialog = new ContentDialog
             {
-                Title = "Markdown Pro — License & Terms of Use",
+                Title = "Markdown Pro â€” License & Terms of Use",
                 Content = scrollViewer,
                 PrimaryButtonText = "I Accept",
                 CloseButtonText = "Decline & Exit",
@@ -1834,7 +1834,7 @@ namespace MarkdownPro
                 : string.Empty;
 
             UpdateBannerText.Text =
-                $"New update available: {update.ReleaseTitle} ({update.TagName}){sizeInfo} — Current: v{UpdateService.GetCurrentVersionString()}";
+                $"New update available: {update.ReleaseTitle} ({update.TagName}){sizeInfo} â€” Current: v{UpdateService.GetCurrentVersionString()}";
             BtnDownloadUpdate.Content = !string.IsNullOrEmpty(update.InstallerDownloadUrl)
                 ? "Download & Install"
                 : "Download from GitHub";

@@ -226,12 +226,12 @@ namespace MarkdownPro.Services
             var psi = new ProcessStartInfo
             {
                 FileName = installerPath,
-                Arguments = "/SILENT /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS",
+                Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS",
                 UseShellExecute = true
             };
 
             Process.Start(psi);
-            Application.Current.Exit();
+            Environment.Exit(0);
         }
 
         /// <summary>
