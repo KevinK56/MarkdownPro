@@ -75,5 +75,5 @@
 
 ## 📄 License
 
-Licensed under the [MIT License & Terms of Use](LICENSE).
+Licensed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE).
 # MarkdownPro

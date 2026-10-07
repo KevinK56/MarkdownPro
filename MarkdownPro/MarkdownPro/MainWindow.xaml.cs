@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -1637,29 +1637,36 @@ namespace MarkdownPro
         private static string GetLicenseTermsText()
         {
             return """
-                MIT License & Terms of Use
+                GNU GENERAL PUBLIC LICENSE (Version 3, 29 June 2007)
+                & Terms of Use
 
-                Copyright (c) 2026 KevinK56 / Star Systems
+                Copyright (C) 2026 KevinK56 / Star Systems
 
-                Permission is hereby granted, free of charge, to any person obtaining a copy
-                of this software and associated documentation files ("Markdown Pro"), to deal
-                in the Software without restriction, including without limitation the rights
-                to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-                copies of the Software, and to permit persons to whom the Software is
-                furnished to do so, subject to the following conditions:
+                Markdown Pro is free software: you can redistribute it and/or modify
+                it under the terms of the GNU General Public License as published by
+                the Free Software Foundation, either version 3 of the License, or
+                (at your option) any later version.
 
-                The above copyright notice and this permission notice shall be included in all
-                copies or substantial portions of the Software.
+                1. Strong Copyleft & Source Disclosure:
+                   Anyone who redistributes Markdown Pro or any modified/derivative work
+                   must license the entire work at no charge under the GNU GPL v3.0 and
+                   make the Complete Corresponding Source Code freely available. Closed-source
+                   commercial redistribution is prohibited.
 
-                TERMS OF USE & PRIVACY:
-                1. Local & Offline Processing: All Markdown parsing, Mermaid diagram rendering,
+                2. Local & Offline Processing:
+                   All Markdown parsing (Marked.js), Mermaid diagram rendering (v11.4.0),
                    bulk file merging, and PDF generation run 100% locally on your device.
-                2. GitHub Update Service: When "Check for Updates on Startup" is enabled, the
-                   application queries the public GitHub Releases API (KevinK56/MarkdownPro)
-                   to check for newer versions. You can disable this anytime under Preferences.
-                3. No Warranty: THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-                   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-                   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+                3. GitHub Update Service:
+                   When "Check for Updates on Startup" is enabled, the application queries
+                   the public GitHub Releases API (KevinK56/MarkdownPro) to check for newer
+                   versions. You can disable this anytime under Preferences.
+
+                4. No Warranty:
+                   This program is distributed in the hope that it will be useful,
+                   but WITHOUT ANY WARRANTY; without even the implied warranty of
+                   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+                   GNU General Public License v3.0 (LICENSE) for full details.
                 """;
         }
 
