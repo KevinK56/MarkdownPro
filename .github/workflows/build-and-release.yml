@@ -1,0 +1,210 @@
+name: Build & Release Markdown Pro
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - '**.md'
+      - 'Documents/**'
+      - '.gitignore'
+  workflow_dispatch:
+    inputs:
+      custom_version:
+        description: 'Optional custom version override (e.g. 2026.10.07.1)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  # ══════════════════════════════════════════════════════════════════════════
+  #  JOB 1: Detect Changes & Compute CalVer Version (YYYY.MM.DD.CommitCount)
+  # ══════════════════════════════════════════════════════════════════════════
+  version:
+    name: Compute Release Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.calc.outputs.version }}
+      tag: ${{ steps.calc.outputs.tag }}
+    steps:
+      - name: Checkout Repository (Full History)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate Version
+        id: calc
+        run: |
+          if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+            VERSION="${{ github.event.inputs.custom_version }}"
+          else
+            DATE_PART=$(date -u +"%Y.%m.%d")
+            COMMIT_COUNT=$(git rev-list --count HEAD)
+            VERSION="${DATE_PART}.${COMMIT_COUNT}"
+          fi
+          TAG="v${VERSION}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "Calculated Release Version: ${TAG}"
+
+  # ══════════════════════════════════════════════════════════════════════════
+  #  JOB 2: Build Self-Contained WinUI 3 App, Portable ZIP & Inno Setup EXE
+  # ══════════════════════════════════════════════════════════════════════════
+  build-and-package:
+    name: Build WinUI 3 App & Installer
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Generate Multi-Size App Icon (app.ico)
+        shell: pwsh
+        run: |
+          ./generate-icon.ps1
+
+      - name: Restore NuGet Packages
+        run: |
+          dotnet restore MarkdownPro/MarkdownPro/MarkdownPro.csproj
+
+      - name: Publish Self-Contained WinUI 3 App (win-x64)
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          dotnet publish MarkdownPro/MarkdownPro/MarkdownPro.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:Platform=x64 `
+            -p:WindowsPackageType=None `
+            -p:WindowsAppSDKSelfContained=true `
+            -p:PublishTrimmed=false `
+            -p:Version=$env:VERSION `
+            -p:AssemblyVersion=$env:VERSION `
+            -p:FileVersion=$env:VERSION `
+            -o publish/win-x64
+
+      - name: Create Portable ZIP Archive
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          Copy-Item "LICENSE" "publish/win-x64/LICENSE" -Force
+          Copy-Item "README.md" "publish/win-x64/README.md" -Force
+          New-Item -ItemType Directory -Path "release_assets" -Force | Out-Null
+          Compress-Archive -Path "publish/win-x64/*" -DestinationPath "release_assets/MarkdownPro-Portable-v$($env:VERSION)-win-x64.zip" -Force
+
+      - name: Compile Inno Setup Installer
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          & $iscc "/DMyAppVersion=$($env:VERSION)" "/DSourceDir=publish\win-x64" "/DOutputDir=release_assets" "installer.iss"
+
+      - name: Upload Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: markdownpro-release-assets
+          path: |
+            release_assets/*.exe
+            release_assets/*.zip
+          retention-days: 7
+
+  # ══════════════════════════════════════════════════════════════════════════
+  #  JOB 3: Create GitHub Release & Upload Installer + Portable ZIP
+  # ══════════════════════════════════════════════════════════════════════════
+  publish-release:
+    name: Publish GitHub Release
+    needs: [version, build-and-package]
+    runs-on: ubuntu-latest
+    outputs:
+      release_url: ${{ steps.create_release.outputs.url }}
+    steps:
+      - name: Checkout Repository (Full History for Changelog)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Release Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: markdownpro-release-assets
+          path: release_assets
+
+      - name: Generate Release Notes
+        id: notes
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges)
+          else
+            COMMITS=$(git log -n 15 --pretty=format:"- %s (%h)" --no-merges)
+          fi
+
+          cat << 'EOF' > release_notes.md
+          ## Markdown Pro ${{ needs.version.outputs.tag }}
+
+          ### 📦 Downloads
+          - **Windows Setup Installer (Recommended)**: `MarkdownPro-Setup-${{ needs.version.outputs.tag }}.exe` — Includes License Agreement, Start Menu & Desktop shortcuts, `.md` file associations, and automatic update support.
+          - **Portable Archive**: `MarkdownPro-Portable-${{ needs.version.outputs.tag }}-win-x64.zip` — Extract anywhere and run `MarkdownPro.exe`.
+
+          ### 🚀 What's Changed
+          EOF
+          echo "$COMMITS" >> release_notes.md
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: "Markdown Pro ${{ needs.version.outputs.tag }}"
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          files: |
+            release_assets/MarkdownPro-Setup-${{ needs.version.outputs.tag }}.exe
+            release_assets/MarkdownPro-Portable-${{ needs.version.outputs.tag }}-win-x64.zip
+
+  # ══════════════════════════════════════════════════════════════════════════
+  #  JOB 4: Send Release Notification Email (Optional — if Secrets Configured)
+  # ══════════════════════════════════════════════════════════════════════════
+  notify:
+    name: Send Release Notification
+    needs: [version, publish-release]
+    if: always() && needs.publish-release.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Notification via StarSystems Comms API
+        env:
+          COMMS_API_KEY: ${{ secrets.COMMS_API_KEY }}
+          NOTIFY_EMAIL: ${{ secrets.RELEASE_NOTIFY_EMAIL }}
+          VERSION: ${{ needs.version.outputs.version }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          if [ -z "$COMMS_API_KEY" ] || [ -z "$NOTIFY_EMAIL" ]; then
+            echo "Notification secrets not configured; skipping email notification."
+            exit 0
+          fi
+
+          curl -s -X POST "https://comms.starsystems.co.za/api/email/send" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Key: ${COMMS_API_KEY}" \
+            -d "{
+              \"to\": \"${NOTIFY_EMAIL}\",
+              \"subject\": \"Markdown Pro ${TAG} Released\",
+              \"body\": \"Markdown Pro ${TAG} has been built and published to GitHub Releases: https://github.com/${{ github.repository }}/releases/tag/${TAG}\"
+            }" || true
+

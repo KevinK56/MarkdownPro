@@ -6,6 +6,15 @@
   </Configurations>
   <Folder Name="/Documents/">
     <File Path="Documents/ImplementationPlan.md" />
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/Deployment/">
+    <File Path=".github/workflows/build-and-release.yml" />
+    <File Path="build-installer.bat" />
+    <File Path="build-portable.bat" />
+    <File Path="generate-icon.ps1" />
+    <File Path="installer.iss" />
   </Folder>
   <Project Path="MarkdownPro/MarkdownPro (Package)/MarkdownPro (Package).wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5">
     <Deploy />

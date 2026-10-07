@@ -45,6 +45,8 @@ namespace MarkdownPro
         private string? _rootOpenedFolderPath;
         private int _untitledCounter = 1;
         private bool _hasShownDefaultAppPrompt;
+        private UpdateInfo? _availableUpdate;
+        private bool _isDownloadingUpdate;
 
         public MainWindow() : this(null)
         {
@@ -89,6 +91,8 @@ namespace MarkdownPro
             {
                 MenuShowSidebar.IsChecked = true;
             }
+
+            MenuCheckUpdatesStartup.IsChecked = _session.CheckForUpdatesOnStartup;
 
             _currentPreviewTheme = string.Equals(_session.PreviewTheme, "dark", StringComparison.OrdinalIgnoreCase)
                 ? "dark"
@@ -149,10 +153,20 @@ namespace MarkdownPro
         {
             await InitializeWebViewAsync();
 
+            if (!_session.HasAcceptedLicense)
+            {
+                await PromptLicenseAcceptanceOnFirstRunAsync();
+            }
+
             if (!_hasShownDefaultAppPrompt)
             {
                 _hasShownDefaultAppPrompt = true;
                 await PromptDefaultMarkdownAppIfNeededAsync();
+            }
+
+            if (_session.CheckForUpdatesOnStartup)
+            {
+                _ = CheckForUpdatesInBackgroundAsync();
             }
         }
 
@@ -1614,6 +1628,283 @@ namespace MarkdownPro
         private void MainWindow_Closed(object sender, WindowEventArgs args)
         {
             SaveSession();
+        }
+
+        #endregion
+
+        #region Updates, License & About
+
+        private static string GetLicenseTermsText()
+        {
+            return """
+                MIT License & Terms of Use
+
+                Copyright (c) 2026 KevinK56 / Star Systems
+
+                Permission is hereby granted, free of charge, to any person obtaining a copy
+                of this software and associated documentation files ("Markdown Pro"), to deal
+                in the Software without restriction, including without limitation the rights
+                to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+                copies of the Software, and to permit persons to whom the Software is
+                furnished to do so, subject to the following conditions:
+
+                The above copyright notice and this permission notice shall be included in all
+                copies or substantial portions of the Software.
+
+                TERMS OF USE & PRIVACY:
+                1. Local & Offline Processing: All Markdown parsing, Mermaid diagram rendering,
+                   bulk file merging, and PDF generation run 100% locally on your device.
+                2. GitHub Update Service: When "Check for Updates on Startup" is enabled, the
+                   application queries the public GitHub Releases API (KevinK56/MarkdownPro)
+                   to check for newer versions. You can disable this anytime under Preferences.
+                3. No Warranty: THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+                   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+                   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+                """;
+        }
+
+        private async Task PromptLicenseAcceptanceOnFirstRunAsync()
+        {
+            var scrollViewer = new ScrollViewer
+            {
+                MaxHeight = 320,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Content = new TextBlock
+                {
+                    Text = GetLicenseTermsText(),
+                    TextWrapping = TextWrapping.Wrap,
+                    FontFamily = new FontFamily("Consolas"),
+                    FontSize = 12
+                }
+            };
+
+            var dialog = new ContentDialog
+            {
+                Title = "Markdown Pro — License & Terms of Use",
+                Content = scrollViewer,
+                PrimaryButtonText = "I Accept",
+                CloseButtonText = "Decline & Exit",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = RootGrid.XamlRoot
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                _session.HasAcceptedLicense = true;
+                SaveSession();
+            }
+            else
+            {
+                Application.Current.Exit();
+            }
+        }
+
+        private async void ViewLicenseTerms_Click(object sender, RoutedEventArgs e)
+        {
+            var scrollViewer = new ScrollViewer
+            {
+                MaxHeight = 340,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Content = new TextBlock
+                {
+                    Text = GetLicenseTermsText(),
+                    TextWrapping = TextWrapping.Wrap,
+                    FontFamily = new FontFamily("Consolas"),
+                    FontSize = 12
+                }
+            };
+
+            var dialog = new ContentDialog
+            {
+                Title = "License & Terms of Use",
+                Content = scrollViewer,
+                CloseButtonText = "Close",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = RootGrid.XamlRoot
+            };
+
+            await dialog.ShowAsync();
+        }
+
+        private async void AboutApp_Click(object sender, RoutedEventArgs e)
+        {
+            string version = UpdateService.GetCurrentVersionString();
+            var panel = new StackPanel { Spacing = 8 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = $"Markdown Pro v{version}",
+                FontSize = 16,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold
+            });
+            panel.Children.Add(new TextBlock
+            {
+                Text = "Dual-pane Markdown & Mermaid v11.4.0 Authoring Environment (100% Offline Engine).",
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.85
+            });
+            panel.Children.Add(new TextBlock
+            {
+                Text = $"GitHub Repository: https://github.com/{UpdateService.GitHubOwner}/{UpdateService.GitHubRepo}",
+                FontSize = 12,
+                Opacity = 0.7,
+                IsTextSelectionEnabled = true
+            });
+
+            var dialog = new ContentDialog
+            {
+                Title = "About Markdown Pro",
+                Content = panel,
+                PrimaryButtonText = "Check for Updates",
+                SecondaryButtonText = "Open GitHub Repo",
+                CloseButtonText = "Close",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = RootGrid.XamlRoot
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                CheckForUpdates_Click(this, new RoutedEventArgs());
+            }
+            else if (result == ContentDialogResult.Secondary)
+            {
+                UpdateService.OpenUrlInBrowser($"https://github.com/{UpdateService.GitHubOwner}/{UpdateService.GitHubRepo}");
+            }
+        }
+
+        private void ToggleCheckUpdatesStartup_Click(object sender, RoutedEventArgs e)
+        {
+            _session.CheckForUpdatesOnStartup = MenuCheckUpdatesStartup.IsChecked;
+            SaveSession();
+            TriggerNotification(
+                _session.CheckForUpdatesOnStartup
+                    ? "Automatic startup update checks enabled."
+                    : "Automatic startup update checks disabled.",
+                InfoBarSeverity.Informational);
+        }
+
+        private async Task CheckForUpdatesInBackgroundAsync()
+        {
+            try
+            {
+                await Task.Delay(2500);
+                var update = await UpdateService.CheckForUpdateAsync();
+                if (update != null)
+                {
+                    DispatcherQueue.TryEnqueue(() => ShowUpdateBanner(update));
+                }
+            }
+            catch
+            {
+                // Silent failure on background startup check
+            }
+        }
+
+        private async void CheckForUpdates_Click(object sender, RoutedEventArgs e)
+        {
+            TriggerNotification("Checking GitHub Releases for updates...", InfoBarSeverity.Informational);
+
+            try
+            {
+                var update = await UpdateService.CheckForUpdateAsync();
+                if (update != null)
+                {
+                    ShowUpdateBanner(update);
+                    TriggerNotification($"Update {update.TagName} is available!", InfoBarSeverity.Success);
+                }
+                else
+                {
+                    TriggerNotification(
+                        $"You are running the latest version (v{UpdateService.GetCurrentVersionString()}).",
+                        InfoBarSeverity.Success);
+                }
+            }
+            catch (Exception ex)
+            {
+                TriggerNotification($"Could not check for updates: {ex.Message}", InfoBarSeverity.Warning);
+            }
+        }
+
+        private void ShowUpdateBanner(UpdateInfo update)
+        {
+            _availableUpdate = update;
+            string sizeInfo = update.InstallerSize > 0
+                ? $" ({update.InstallerSize / (1024.0 * 1024.0):F1} MB)"
+                : string.Empty;
+
+            UpdateBannerText.Text =
+                $"New update available: {update.ReleaseTitle} ({update.TagName}){sizeInfo} — Current: v{UpdateService.GetCurrentVersionString()}";
+            BtnDownloadUpdate.Content = !string.IsNullOrEmpty(update.InstallerDownloadUrl)
+                ? "Download & Install"
+                : "Download from GitHub";
+            BtnDownloadUpdate.IsEnabled = true;
+            UpdateDownloadProgress.Visibility = Visibility.Collapsed;
+            UpdateBannerBorder.Visibility = Visibility.Visible;
+        }
+
+        private async void DownloadAndInstallUpdate_Click(object sender, RoutedEventArgs e)
+        {
+            if (_availableUpdate == null || _isDownloadingUpdate)
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(_availableUpdate.InstallerDownloadUrl))
+            {
+                UpdateService.OpenUrlInBrowser(_availableUpdate.ReleasePageUrl);
+                return;
+            }
+
+            _isDownloadingUpdate = true;
+            BtnDownloadUpdate.IsEnabled = false;
+            UpdateDownloadProgress.Value = 0;
+            UpdateDownloadProgress.Visibility = Visibility.Visible;
+
+            try
+            {
+                var progress = new Progress<double>(pct =>
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        UpdateDownloadProgress.Value = pct;
+                        BtnDownloadUpdate.Content = $"Downloading {pct:F0}%...";
+                    });
+                });
+
+                string installerPath = await UpdateService.DownloadInstallerAsync(
+                    _availableUpdate.InstallerDownloadUrl,
+                    progress);
+
+                BtnDownloadUpdate.Content = "Launching Installer...";
+                SaveSession();
+                UpdateService.LaunchInstallerAndShutdown(installerPath);
+            }
+            catch (Exception ex)
+            {
+                _isDownloadingUpdate = false;
+                BtnDownloadUpdate.IsEnabled = true;
+                BtnDownloadUpdate.Content = "Download & Install";
+                UpdateDownloadProgress.Visibility = Visibility.Collapsed;
+                TriggerNotification($"Update download failed: {ex.Message}", InfoBarSeverity.Error);
+            }
+        }
+
+        private void ViewReleaseNotes_Click(object sender, RoutedEventArgs e)
+        {
+            if (_availableUpdate != null && !string.IsNullOrEmpty(_availableUpdate.ReleasePageUrl))
+            {
+                UpdateService.OpenUrlInBrowser(_availableUpdate.ReleasePageUrl);
+            }
+            else
+            {
+                UpdateService.OpenUrlInBrowser($"https://github.com/{UpdateService.GitHubOwner}/{UpdateService.GitHubRepo}/releases");
+            }
+        }
+
+        private void DismissUpdateBanner_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateBannerBorder.Visibility = Visibility.Collapsed;
         }
 
         #endregion

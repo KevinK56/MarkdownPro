@@ -15,6 +15,8 @@ namespace MarkdownPro.Services
         public string PreviewLayout { get; set; } = "editor"; // "editor", "split", "full"
         public bool IsSidebarOpen { get; set; } = true;
         public bool SuppressDefaultAppPrompt { get; set; }
+        public bool CheckForUpdatesOnStartup { get; set; } = true;
+        public bool HasAcceptedLicense { get; set; }
     }
 
     public class WebViewCommandMessage

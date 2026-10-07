@@ -1,0 +1,45 @@
+MIT License & Terms of Use — Markdown Pro
+
+Copyright (c) 2026 KevinK56 / Star Systems
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files ("Markdown Pro"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+================================================================================
+TERMS OF USE & PRIVACY NOTICE
+================================================================================
+
+1. ACCEPTANCE OF TERMS
+   By installing, copying, or using Markdown Pro, you agree to be bound by the
+   terms of this License Agreement. If you do not agree to these terms, do not
+   install or use the software.
+
+2. 100% OFFLINE & LOCAL PROCESSING
+   All Markdown authoring, GFM HTML compilation (Marked.js), Mermaid diagram
+   rendering (Mermaid v11.4.0), bulk Markdown file merging, and PDF/Print export
+   operations are performed 100% locally on your computer. Your documents and
+   files are never uploaded or transmitted to any external server.
+
+3. AUTOMATIC UPDATE CHECKS (GITHUB RELEASES)
+   Markdown Pro includes a built-in Update Service that checks the official
+   GitHub repository (https://github.com/KevinK56/MarkdownPro/releases) for new
+   versions on startup and when manually requested via Preferences -> Check for
+   Updates. You may disable automatic startup update checks at any time from the
+   Preferences menu.
+
+4. DISCLAIMER OF WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
