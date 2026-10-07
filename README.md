@@ -2,6 +2,13 @@
 
 **Markdown Pro** is a fast, native **WinUI 3** dual-pane Markdown and **Mermaid.js v11.4.0** authoring environment for Windows 10 and Windows 11. It runs **100% offline** with local rendering, multi-tab document editing, folder explorer navigation, bulk `.md` file merging with automatic PDF page breaks, and one-click PDF/HTML export.
 
+
+---
+## Preview
+
+<img width="1914" height="1029" alt="image" src="https://github.com/user-attachments/assets/b0f422e2-14a9-48fd-af29-ee9e692e4a65" />
+
+
 ---
 
 ## ✨ Key Features
