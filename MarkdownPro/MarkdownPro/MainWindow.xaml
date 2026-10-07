@@ -845,7 +845,7 @@
                                                TextWrapping="Wrap" />
                                 </StackPanel>
 
-                                <MenuFlyoutSeparator />
+                                <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" />
 
                                 <StackPanel Spacing="8">
                                     <TextBlock Text="PDF Page Breaks (Export Paging)" FontSize="15" FontWeight="Bold" />
@@ -867,7 +867,7 @@
                                                Opacity="0.65" />
                                 </StackPanel>
 
-                                <MenuFlyoutSeparator />
+                                <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" />
 
                                 <StackPanel Spacing="10">
                                     <TextBlock Text="Standard Markdown Syntax (Click any row to copy)" FontSize="15" FontWeight="Bold" />
@@ -958,7 +958,7 @@
                                                TextWrapping="Wrap" />
                                 </StackPanel>
 
-                                <MenuFlyoutSeparator />
+                                <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" />
 
                                 <StackPanel Spacing="8">
                                     <TextBlock Text="1. Node Shapes &amp; Syntax (Click any row to copy)" FontSize="15" FontWeight="Bold" />
@@ -1009,18 +1009,18 @@
                                                 <TextBlock Grid.Column="2" Text="id6((Core State))" Foreground="#0969DA" FontFamily="Cascadia Mono, Consolas, monospace" />
                                             </Grid>
                                         </Button>
-                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopyMermaidShape_Click" Tag="id{Decision}">
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopyMermaidShape_Click" Tag="{}id{Decision}">
                                             <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                                 <TextBlock Text="Rhombus (Decision)" FontWeight="SemiBold" />
-                                                <TextBlock Grid.Column="1" Text="id{Text}" FontFamily="Cascadia Mono, Consolas, monospace" />
-                                                <TextBlock Grid.Column="2" Text="id7{Is Active?}" Foreground="#0969DA" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                                <TextBlock Grid.Column="1" Text="{}id{Text}" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                                <TextBlock Grid.Column="2" Text="{}id7{Is Active?}" Foreground="#0969DA" FontFamily="Cascadia Mono, Consolas, monospace" />
                                             </Grid>
                                         </Button>
-                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopyMermaidShape_Click" Tag="id{{Hexagon}}">
+                                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopyMermaidShape_Click" Tag="{}id{{Hexagon}}">
                                             <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                                 <TextBlock Text="Hexagon" FontWeight="SemiBold" />
-                                                <TextBlock Grid.Column="1" Text="id{{Text}}" FontFamily="Cascadia Mono, Consolas, monospace" />
-                                                <TextBlock Grid.Column="2" Text="id8{{Audit Loop}}" Foreground="#0969DA" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                                <TextBlock Grid.Column="1" Text="{}id{{Text}}" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                                <TextBlock Grid.Column="2" Text="{}id8{{Audit Loop}}" Foreground="#0969DA" FontFamily="Cascadia Mono, Consolas, monospace" />
                                             </Grid>
                                         </Button>
                                         <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="CopyMermaidShape_Click" Tag="id[/Parallelogram/]">
@@ -1033,7 +1033,7 @@
                                     </StackPanel>
                                 </StackPanel>
 
-                                <MenuFlyoutSeparator />
+                                <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" />
 
                                 <StackPanel Spacing="8">
                                     <TextBlock Text="2. Node Styling &amp; Custom Themes" FontSize="15" FontWeight="Bold" />
@@ -1061,7 +1061,7 @@
                                     </Border>
                                 </StackPanel>
 
-                                <MenuFlyoutSeparator />
+                                <Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" />
 
                                 <StackPanel Spacing="12">
                                     <TextBlock Text="3. Comprehensive Diagrams &amp; Templates" FontSize="15" FontWeight="Bold" />
@@ -1079,7 +1079,7 @@
                                                        FontFamily="Cascadia Mono, Consolas, monospace"
                                                        FontSize="12"
                                                        IsTextSelectionEnabled="True"
-                                                       Text="graph TD&#x0a;  A[Start] --&gt; B{Decision}&#x0a;  B --&gt;|Yes| C[Success]&#x0a;  B --&gt;|No| D[Retry]&#x0a;  style C fill:#d4edda,stroke:#28a745" />
+                                                       Text="{}graph TD&#x0a;  A[Start] --&gt; B{Decision}&#x0a;  B --&gt;|Yes| C[Success]&#x0a;  B --&gt;|No| D[Retry]&#x0a;  style C fill:#d4edda,stroke:#28a745" />
                                         </StackPanel>
                                     </Border>
 
@@ -1113,7 +1113,7 @@
                                                        FontFamily="Cascadia Mono, Consolas, monospace"
                                                        FontSize="12"
                                                        IsTextSelectionEnabled="True"
-                                                       Text="erDiagram&#x0a;  CUSTOMER ||--o{ ORDER : places&#x0a;  ORDER ||--|{ LINE_ITEM : contains&#x0a;  CUSTOMER {&#x0a;    string name&#x0a;    string email&#x0a;  }" />
+                                                       Text="{}erDiagram&#x0a;  CUSTOMER ||--o{ ORDER : places&#x0a;  ORDER ||--|{ LINE_ITEM : contains&#x0a;  CUSTOMER {&#x0a;    string name&#x0a;    string email&#x0a;  }" />
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
@@ -1172,8 +1172,7 @@
 
                         <!-- WebView2 Host (#renderedOutput) -->
                         <WebView2 x:Name="PreviewWebView"
-                                  Grid.Row="1"
-                                  DefaultBackgroundColor="White" />
+                                  Grid.Row="1" />
                     </Grid>
                 </Border>
             </Grid>

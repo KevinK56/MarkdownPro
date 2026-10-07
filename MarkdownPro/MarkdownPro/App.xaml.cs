@@ -22,37 +22,89 @@ namespace MarkdownPro
 
         private const int SW_RESTORE = 9;
 
+        private static readonly string CrashLogPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "MarkdownPro",
+            "crash.log");
+
+        public static void LogCrash(string context, Exception? ex)
+        {
+            try
+            {
+                string dir = Path.GetDirectoryName(CrashLogPath)!;
+                Directory.CreateDirectory(dir);
+                string entry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{context}] {ex}\r\n--------------------------------------------------\r\n";
+                File.AppendAllText(CrashLogPath, entry);
+            }
+            catch
+            {
+            }
+        }
+
         public App()
         {
+            AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            {
+                LogCrash("AppDomain.UnhandledException", e.ExceptionObject as Exception);
+            };
+
+            System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, e) =>
+            {
+                LogCrash("TaskScheduler.UnobservedTaskException", e.Exception);
+                e.SetObserved();
+            };
+
+            UnhandledException += (_, e) =>
+            {
+                LogCrash($"WinUI.UnhandledException ({e.Message})", e.Exception);
+                e.Handled = true;
+            };
+
             InitializeComponent();
         }
 
         protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
-            var currentInstance = AppInstance.GetCurrent();
-            var activatedArgs = currentInstance.GetActivatedEventArgs();
-
-            var mainInstance = AppInstance.FindOrRegisterForKey("MarkdownPro.PrimaryInstance");
-            if (!mainInstance.IsCurrent)
+            try
             {
-                await mainInstance.RedirectActivationToAsync(activatedArgs);
-                Environment.Exit(0);
-                return;
-            }
+                var initialFiles = new List<string>();
 
-            mainInstance.Activated += OnAppInstanceActivated;
-
-            var initialFiles = ExtractFilePaths(activatedArgs);
-            foreach (var cmdFile in ExtractCommandLineFilePaths())
-            {
-                if (!initialFiles.Contains(cmdFile, StringComparer.OrdinalIgnoreCase))
+                try
                 {
-                    initialFiles.Add(cmdFile);
-                }
-            }
+                    var currentInstance = AppInstance.GetCurrent();
+                    var activatedArgs = currentInstance.GetActivatedEventArgs();
 
-            _window = new MainWindow(initialFiles);
-            _window.Activate();
+                    var mainInstance = AppInstance.FindOrRegisterForKey("MarkdownPro.PrimaryInstance");
+                    if (!mainInstance.IsCurrent)
+                    {
+                        await mainInstance.RedirectActivationToAsync(activatedArgs);
+                        Environment.Exit(0);
+                        return;
+                    }
+
+                    mainInstance.Activated += OnAppInstanceActivated;
+                    initialFiles.AddRange(ExtractFilePaths(activatedArgs));
+                }
+                catch (Exception ex)
+                {
+                    LogCrash("AppInstance.SingleInstanceInit", ex);
+                }
+
+                foreach (var cmdFile in ExtractCommandLineFilePaths())
+                {
+                    if (!initialFiles.Contains(cmdFile, StringComparer.OrdinalIgnoreCase))
+                    {
+                        initialFiles.Add(cmdFile);
+                    }
+                }
+
+                _window = new MainWindow(initialFiles);
+                _window.Activate();
+            }
+            catch (Exception ex)
+            {
+                LogCrash("OnLaunched", ex);
+            }
         }
 
         private void OnAppInstanceActivated(object? sender, AppActivationArguments e)
