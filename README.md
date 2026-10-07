@@ -33,7 +33,8 @@
   - Export directly to `.md`, standalone GitHub-styled `.html`, or print-optimized `.pdf` with light/dark preview themes.
 - **GitHub Auto-Update Service**:
   - Automatically checks [GitHub Releases](https://github.com/KevinK56/MarkdownPro/releases) for newer versions and downloads/installs updates in one click.
-
+- **Example File**:
+  - See example file in the main directory or click here: [Example.md](https://github.com/KevinK56/MarkdownPro/blob/master/Example.md)
 ---
 
 ## 📦 Installation
