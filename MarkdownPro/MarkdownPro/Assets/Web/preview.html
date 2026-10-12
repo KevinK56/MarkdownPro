@@ -347,7 +347,7 @@
                 try {
                     decoded = decodeURIComponent(src);
                 } catch (e) {}
-                img.src = 'https://docassets.local/?path=' + encodeURIComponent(decoded);
+                img.src = 'https://docassets.local/?path=' + encodeURIComponent(decoded) + '&_t=' + Date.now();
             });
 
             // 2. Safely capture and transform Mermaid blocks

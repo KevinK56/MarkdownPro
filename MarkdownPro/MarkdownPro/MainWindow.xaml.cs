@@ -48,6 +48,8 @@ namespace MarkdownPro
         private bool _hasShownDefaultAppPrompt;
         private UpdateInfo? _availableUpdate;
         private bool _isDownloadingUpdate;
+        private readonly Dictionary<string, FileSystemWatcher> _activeWatchers = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _folderRefreshDebounceTimer;
 
         public MainWindow() : this(null)
         {
@@ -71,7 +73,19 @@ namespace MarkdownPro
             _infoBarTimer.IsRepeating = false;
             _infoBarTimer.Tick += (_, _) => AppInfoBar.IsOpen = false;
 
+            _folderRefreshDebounceTimer = DispatcherQueue.CreateTimer();
+            _folderRefreshDebounceTimer.Interval = TimeSpan.FromMilliseconds(300);
+            _folderRefreshDebounceTimer.IsRepeating = false;
+            _folderRefreshDebounceTimer.Tick += (_, _) =>
+            {
+                if (!string.IsNullOrWhiteSpace(_currentFolderPath) && Directory.Exists(_currentFolderPath))
+                {
+                    LoadFolderIntoSidebar(_currentFolderPath, setAsRoot: false);
+                }
+            };
+
             Closed += MainWindow_Closed;
+            Activated += MainWindow_Activated;
             RootGrid.Loaded += RootGrid_Loaded;
 
             InitializeWorkspaceState(initialFiles);
@@ -100,6 +114,12 @@ namespace MarkdownPro
                 : "light";
             MenuThemeLight.IsChecked = _currentPreviewTheme != "dark";
             MenuThemeDark.IsChecked = _currentPreviewTheme == "dark";
+
+            // Check if folder or files were renamed while Markdown Pro was closed
+            if (!string.IsNullOrWhiteSpace(_session.LastFolderPath) && !Directory.Exists(_session.LastFolderPath))
+            {
+                TryRecoverStartupRenamedFolder(_session);
+            }
 
             if (!string.IsNullOrWhiteSpace(_session.LastFolderPath) && Directory.Exists(_session.LastFolderPath))
             {
@@ -153,6 +173,7 @@ namespace MarkdownPro
 
             SetActiveSection("editor");
             SetPreviewLayout("editor");
+            UpdateFileSystemWatchers();
         }
 
         private async void RootGrid_Loaded(object sender, RoutedEventArgs e)
@@ -294,7 +315,7 @@ namespace MarkdownPro
                         randomAccessStream,
                         200,
                         "OK",
-                        $"Content-Type: {contentType}\r\nAccess-Control-Allow-Origin: *");
+                        $"Content-Type: {contentType}\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: no-cache, no-store, must-revalidate");
                     args.Response = response;
                 }
             }
@@ -572,6 +593,7 @@ namespace MarkdownPro
             var loadedDoc = MarkdownDocument.LoadFromFile(normalizedPath);
             AddDocumentTab(loadedDoc, selectTab: switchToTab);
             SaveSession();
+            UpdateFileSystemWatchers();
         }
 
         private async Task<bool> CloseDocumentAsync(MarkdownDocument doc)
@@ -628,6 +650,7 @@ namespace MarkdownPro
             }
 
             SaveSession();
+            UpdateFileSystemWatchers();
             return true;
         }
 
@@ -841,6 +864,7 @@ namespace MarkdownPro
             FolderFilesListView.Visibility = Visibility.Visible;
             SidebarCloseFolderBtn.Visibility = Visibility.Visible;
             MenuCloseFolder.IsEnabled = true;
+            UpdateFileSystemWatchers();
         }
 
         private void FolderFilesListView_ItemClick(object sender, ItemClickEventArgs e)
@@ -945,6 +969,7 @@ namespace MarkdownPro
 
             _session.LastFolderPath = null;
             SaveSession();
+            UpdateFileSystemWatchers();
             TriggerNotification("Folder closed.", InfoBarSeverity.Informational);
         }
 
@@ -1033,6 +1058,7 @@ namespace MarkdownPro
                     LoadFolderIntoSidebar(_currentFolderPath, setAsRoot: false);
                 }
                 SaveSession();
+                UpdateFileSystemWatchers();
                 TriggerNotification($"Saved {doc.Title}", InfoBarSeverity.Success);
                 return true;
             }
@@ -1041,6 +1067,438 @@ namespace MarkdownPro
                 TriggerNotification($"Failed to save file: {ex.Message}", InfoBarSeverity.Error);
                 return false;
             }
+        }
+
+        #endregion
+
+        #region File System Watcher & Folder Rename Synchronization
+
+        private void UpdateFileSystemWatchers()
+        {
+            try
+            {
+                var targetDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                // 1. Root opened workspace folder and its parent
+                if (!string.IsNullOrWhiteSpace(_rootOpenedFolderPath) && Directory.Exists(_rootOpenedFolderPath))
+                {
+                    string root = Path.GetFullPath(_rootOpenedFolderPath);
+                    targetDirs.Add(root);
+
+                    var parent = Directory.GetParent(root);
+                    if (parent != null && parent.Exists)
+                    {
+                        targetDirs.Add(parent.FullName);
+                    }
+                }
+
+                // 2. Current workspace subfolder if different
+                if (!string.IsNullOrWhiteSpace(_currentFolderPath) && Directory.Exists(_currentFolderPath))
+                {
+                    string current = Path.GetFullPath(_currentFolderPath);
+                    targetDirs.Add(current);
+
+                    var parent = Directory.GetParent(current);
+                    if (parent != null && parent.Exists)
+                    {
+                        targetDirs.Add(parent.FullName);
+                    }
+                }
+
+                // 3. For each open document, its containing directory and parent
+                foreach (var doc in _openDocuments)
+                {
+                    if (string.IsNullOrWhiteSpace(doc.FilePath))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        string? docDir = Path.GetDirectoryName(doc.FilePath);
+                        if (!string.IsNullOrWhiteSpace(docDir) && Directory.Exists(docDir))
+                        {
+                            string fullDocDir = Path.GetFullPath(docDir);
+                            targetDirs.Add(fullDocDir);
+
+                            var parent1 = Directory.GetParent(fullDocDir);
+                            if (parent1 != null && parent1.Exists)
+                            {
+                                targetDirs.Add(parent1.FullName);
+
+                                var parent2 = Directory.GetParent(parent1.FullName);
+                                if (parent2 != null && parent2.Exists)
+                                {
+                                    targetDirs.Add(parent2.FullName);
+                                }
+                            }
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                // Stop & dispose watchers for directories no longer in targetDirs
+                var toRemove = _activeWatchers.Keys.Where(k => !targetDirs.Contains(k)).ToList();
+                foreach (var dirKey in toRemove)
+                {
+                    if (_activeWatchers.TryGetValue(dirKey, out var w))
+                    {
+                        try
+                        {
+                            w.EnableRaisingEvents = false;
+                            w.Dispose();
+                        }
+                        catch
+                        {
+                        }
+                        _activeWatchers.Remove(dirKey);
+                    }
+                }
+
+                // Create watchers for new target directories
+                foreach (var dir in targetDirs)
+                {
+                    if (_activeWatchers.ContainsKey(dir))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        bool isWorkspaceRoot = !string.IsNullOrWhiteSpace(_rootOpenedFolderPath) &&
+                                              string.Equals(dir, Path.GetFullPath(_rootOpenedFolderPath), StringComparison.OrdinalIgnoreCase);
+
+                        var watcher = new FileSystemWatcher(dir)
+                        {
+                            NotifyFilter = NotifyFilters.DirectoryName | NotifyFilters.FileName | NotifyFilters.LastWrite,
+                            IncludeSubdirectories = isWorkspaceRoot,
+                            EnableRaisingEvents = true
+                        };
+
+                        watcher.Renamed += OnWatcherRenamed;
+                        watcher.Created += OnWatcherCreatedOrDeleted;
+                        watcher.Deleted += OnWatcherCreatedOrDeleted;
+                        watcher.Error += OnWatcherError;
+
+                        _activeWatchers[dir] = watcher;
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Failed to watch directory '{dir}': {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"UpdateFileSystemWatchers error: {ex.Message}");
+            }
+        }
+
+        private void OnWatcherRenamed(object sender, RenamedEventArgs e)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                HandleFileSystemRename(e.OldFullPath, e.FullPath);
+            });
+        }
+
+        private void OnWatcherCreatedOrDeleted(object sender, FileSystemEventArgs e)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                _folderRefreshDebounceTimer.Stop();
+                _folderRefreshDebounceTimer.Start();
+            });
+        }
+
+        private void OnWatcherError(object sender, ErrorEventArgs e)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                UpdateFileSystemWatchers();
+            });
+        }
+
+        private void HandleFileSystemRename(string oldFullPath, string newFullPath)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(oldFullPath) || string.IsNullOrWhiteSpace(newFullPath))
+                {
+                    return;
+                }
+
+                string normalizedOld = Path.GetFullPath(oldFullPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string normalizedNew = Path.GetFullPath(newFullPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                if (string.Equals(normalizedOld, normalizedNew, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                bool isDirectoryRename = Directory.Exists(normalizedNew);
+                bool anyDocUpdated = false;
+                bool folderUpdated = false;
+
+                // 1. Update open documents
+                foreach (var doc in _openDocuments)
+                {
+                    if (string.IsNullOrWhiteSpace(doc.FilePath))
+                    {
+                        continue;
+                    }
+
+                    string docFullPath = Path.GetFullPath(doc.FilePath);
+
+                    // Exact match (a single open file was renamed)
+                    if (string.Equals(docFullPath, normalizedOld, StringComparison.OrdinalIgnoreCase))
+                    {
+                        doc.FilePath = normalizedNew;
+                        doc.Title = Path.GetFileName(normalizedNew);
+                        anyDocUpdated = true;
+                    }
+                    // Directory prefix match (the directory containing this document was renamed)
+                    else if (docFullPath.StartsWith(normalizedOld + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                             docFullPath.StartsWith(normalizedOld + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    {
+                        string rel = docFullPath.Substring(normalizedOld.Length)
+                            .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        string newDocPath = Path.Combine(normalizedNew, rel);
+                        doc.FilePath = newDocPath;
+                        doc.Title = Path.GetFileName(newDocPath);
+                        anyDocUpdated = true;
+                    }
+                }
+
+                // 2. Update workspace folder paths
+                if (!string.IsNullOrWhiteSpace(_rootOpenedFolderPath))
+                {
+                    string root = Path.GetFullPath(_rootOpenedFolderPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    if (string.Equals(root, normalizedOld, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _rootOpenedFolderPath = normalizedNew;
+                        folderUpdated = true;
+                    }
+                    else if (root.StartsWith(normalizedOld + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                             root.StartsWith(normalizedOld + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    {
+                        string rel = root.Substring(normalizedOld.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        _rootOpenedFolderPath = Path.Combine(normalizedNew, rel);
+                        folderUpdated = true;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(_currentFolderPath))
+                {
+                    string current = Path.GetFullPath(_currentFolderPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    if (string.Equals(current, normalizedOld, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _currentFolderPath = normalizedNew;
+                        folderUpdated = true;
+                    }
+                    else if (current.StartsWith(normalizedOld + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                             current.StartsWith(normalizedOld + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    {
+                        string rel = current.Substring(normalizedOld.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        _currentFolderPath = Path.Combine(normalizedNew, rel);
+                        folderUpdated = true;
+                    }
+                }
+
+                // 3. If workspace folder was updated, reload sidebar
+                if (folderUpdated && !string.IsNullOrWhiteSpace(_currentFolderPath) && Directory.Exists(_currentFolderPath))
+                {
+                    LoadFolderIntoSidebar(_currentFolderPath, setAsRoot: false);
+                }
+
+                // 4. If any documents or folders were updated, synchronize UI, session, and preview
+                if (anyDocUpdated || folderUpdated)
+                {
+                    UpdateActiveDocumentHeaderAndStatus();
+                    _ = RenderMarkdownNowAsync();
+                    SaveSession();
+                    UpdateFileSystemWatchers();
+
+                    string oldName = Path.GetFileName(normalizedOld);
+                    string newName = Path.GetFileName(normalizedNew);
+                    string entityType = isDirectoryRename ? "Folder" : "File";
+                    TriggerNotification($"{entityType} renamed: '{oldName}' \u2192 '{newName}'. Updated in Markdown Pro.", InfoBarSeverity.Informational);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"HandleFileSystemRename exception: {ex.Message}");
+            }
+        }
+
+        private void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
+        {
+            if (args.WindowActivationState != WindowActivationState.Deactivated)
+            {
+                CheckAndRecoverRenamedPaths();
+            }
+        }
+
+        private void CheckAndRecoverRenamedPaths()
+        {
+            try
+            {
+                // 1. Check open documents
+                foreach (var doc in _openDocuments)
+                {
+                    if (string.IsNullOrWhiteSpace(doc.FilePath) || File.Exists(doc.FilePath))
+                    {
+                        continue;
+                    }
+
+                    string? docDir = Path.GetDirectoryName(doc.FilePath);
+                    if (string.IsNullOrWhiteSpace(docDir) || Directory.Exists(docDir))
+                    {
+                        continue;
+                    }
+
+                    // Directory does not exist; check parent directory for renamed candidate
+                    var parent = Directory.GetParent(docDir);
+                    if (parent != null && parent.Exists)
+                    {
+                        string fileName = Path.GetFileName(doc.FilePath);
+                        foreach (var candidateDir in parent.GetDirectories())
+                        {
+                            string candidateFile = Path.Combine(candidateDir.FullName, fileName);
+                            if (File.Exists(candidateFile))
+                            {
+                                HandleFileSystemRename(docDir, candidateDir.FullName);
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                // 2. Check current workspace folder
+                if (!string.IsNullOrWhiteSpace(_currentFolderPath) && !Directory.Exists(_currentFolderPath))
+                {
+                    var parent = Directory.GetParent(_currentFolderPath);
+                    if (parent != null && parent.Exists)
+                    {
+                        var latestDir = parent.GetDirectories()
+                            .OrderByDescending(d => d.LastWriteTimeUtc)
+                            .FirstOrDefault();
+
+                        if (latestDir != null && (DateTime.UtcNow - latestDir.LastWriteTimeUtc).TotalHours < 24)
+                        {
+                            HandleFileSystemRename(_currentFolderPath, latestDir.FullName);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"CheckAndRecoverRenamedPaths exception: {ex.Message}");
+            }
+        }
+
+        private static void TryRecoverStartupRenamedFolder(SessionState session)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(session.LastFolderPath) || Directory.Exists(session.LastFolderPath))
+                {
+                    return;
+                }
+
+                string oldFolder = Path.GetFullPath(session.LastFolderPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var parent = Directory.GetParent(oldFolder);
+                if (parent == null || !parent.Exists)
+                {
+                    return;
+                }
+
+                string? recoveredDir = null;
+
+                // Strategy A: match open file existence in candidate directories
+                if (session.OpenFilePaths != null)
+                {
+                    foreach (var openFile in session.OpenFilePaths)
+                    {
+                        if (string.IsNullOrWhiteSpace(openFile)) continue;
+                        string fileName = Path.GetFileName(openFile);
+                        foreach (var dir in parent.GetDirectories())
+                        {
+                            if (File.Exists(Path.Combine(dir.FullName, fileName)))
+                            {
+                                recoveredDir = dir.FullName;
+                                break;
+                            }
+                        }
+                        if (recoveredDir != null) break;
+                    }
+                }
+
+                // Strategy B: most recently modified directory in parent within last 24 hours
+                if (recoveredDir == null)
+                {
+                    var latest = parent.GetDirectories()
+                        .OrderByDescending(d => d.LastWriteTimeUtc)
+                        .FirstOrDefault();
+                    if (latest != null && (DateTime.UtcNow - latest.LastWriteTimeUtc).TotalHours < 24)
+                    {
+                        recoveredDir = latest.FullName;
+                    }
+                }
+
+                if (recoveredDir != null)
+                {
+                    session.LastFolderPath = recoveredDir;
+
+                    if (session.OpenFilePaths != null)
+                    {
+                        for (int i = 0; i < session.OpenFilePaths.Count; i++)
+                        {
+                            string p = session.OpenFilePaths[i];
+                            if (string.IsNullOrWhiteSpace(p)) continue;
+                            string fullP = Path.GetFullPath(p);
+                            if (fullP.StartsWith(oldFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                                fullP.StartsWith(oldFolder + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                            {
+                                string rel = fullP.Substring(oldFolder.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                                session.OpenFilePaths[i] = Path.Combine(recoveredDir, rel);
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(session.ActiveFilePath))
+                    {
+                        string fullActive = Path.GetFullPath(session.ActiveFilePath);
+                        if (fullActive.StartsWith(oldFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                            fullActive.StartsWith(oldFolder + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                        {
+                            string rel = fullActive.Substring(oldFolder.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                            session.ActiveFilePath = Path.Combine(recoveredDir, rel);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private void DisposeAllWatchers()
+        {
+            foreach (var watcher in _activeWatchers.Values)
+            {
+                try
+                {
+                    watcher.EnableRaisingEvents = false;
+                    watcher.Dispose();
+                }
+                catch
+                {
+                }
+            }
+            _activeWatchers.Clear();
         }
 
         #endregion
@@ -2109,6 +2567,8 @@ namespace MarkdownPro
 
         private void MainWindow_Closed(object sender, WindowEventArgs args)
         {
+            DisposeAllWatchers();
+            _folderRefreshDebounceTimer?.Stop();
             SaveSession();
         }
 
