@@ -1,0 +1,11 @@
+# GitHub Sponsor & Funding configuration
+# When present, GitHub displays a pink "💖 Sponsor" button at the top of your repository.
+
+# Set your GitHub Sponsors username:
+github: KevinK56
+
+# Other popular platforms (uncomment and replace with your username/URL):
+# buy_me_a_coffee: your_username
+ko_fi: kevink56
+# patreon: your_username
+custom : ['https://www.paypal.me/kevinkoekemoer']
