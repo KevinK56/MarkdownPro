@@ -5,16 +5,22 @@ on:
     branches:
       - main
       - master
-    paths-ignore:
-      - '**.md'
-      - 'Documents/**'
-      - '.gitignore'
+    # Only trigger when source code, icon scripts, or installer scripts change
+    paths:
+      - 'MarkdownPro/**'
+      - 'installer.iss'
+      - 'generate-icon.ps1'
   workflow_dispatch:
     inputs:
       custom_version:
         description: 'Optional custom version override (e.g. 2026.10.07.1)'
         required: false
         default: ''
+      force_deploy:
+        description: 'Force release even if no code changes detected'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -24,19 +30,52 @@ jobs:
   #  JOB 1: Detect Changes & Compute CalVer Version (YYYY.MM.DD.CommitCount)
   # ══════════════════════════════════════════════════════════════════════════
   version:
-    name: Compute Release Version
+    name: Detect Changes & Release Version
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.calc.outputs.version }}
       tag: ${{ steps.calc.outputs.tag }}
+      has_changes: ${{ steps.check_changes.outputs.has_changes }}
     steps:
       - name: Checkout Repository (Full History)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Detect Code Changes Since Last Release
+        id: check_changes
+        run: |
+          # If manually triggered with force_deploy or custom_version, always allow
+          if [ "${{ github.event.inputs.force_deploy }}" = "true" ] || [ -n "${{ github.event.inputs.custom_version }}" ]; then
+            echo "Deployment forced via workflow_dispatch."
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Find the most recent release tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No existing release tags found. First release."
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "Latest release tag: $LATEST_TAG"
+            # Compare code paths between the latest release tag and HEAD
+            CODE_DIFF=$(git diff --name-only "$LATEST_TAG" HEAD -- 'MarkdownPro/' 'installer.iss' 'generate-icon.ps1')
+
+            if [ -n "$CODE_DIFF" ]; then
+              echo "Code changes detected since $LATEST_TAG:"
+              echo "$CODE_DIFF"
+              echo "has_changes=true" >> $GITHUB_OUTPUT
+            else
+              echo "No code changes detected since $LATEST_TAG. Skipping deployment."
+              echo "has_changes=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
       - name: Calculate Version
         id: calc
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: |
           if [ -n "${{ github.event.inputs.custom_version }}" ]; then
             VERSION="${{ github.event.inputs.custom_version }}"
@@ -56,6 +95,7 @@ jobs:
   build-and-package:
     name: Build WinUI 3 App & Installer
     needs: version
+    if: needs.version.outputs.has_changes == 'true'
     runs-on: windows-latest
     steps:
       - name: Checkout Repository
@@ -131,6 +171,7 @@ jobs:
   publish-release:
     name: Publish GitHub Release
     needs: [version, build-and-package]
+    if: needs.version.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
     outputs:
       release_url: ${{ steps.create_release.outputs.url }}
@@ -186,7 +227,7 @@ jobs:
   notify:
     name: Send Release Notification
     needs: [version, publish-release]
-    if: always() && needs.publish-release.result == 'success'
+    if: needs.publish-release.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Send Notification via StarSystems Comms API
@@ -209,4 +250,3 @@ jobs:
               \"subject\": \"Markdown Pro ${TAG} Released\",
               \"body\": \"Markdown Pro ${TAG} has been built and published to GitHub Releases: https://github.com/${{ github.repository }}/releases/tag/${TAG}\"
             }" || true
-
