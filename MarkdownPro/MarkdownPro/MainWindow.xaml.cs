@@ -321,17 +321,29 @@ namespace MarkdownPro
                 rawPath = rawPath.Substring(7).Replace('/', '\\');
             }
 
+            // Recursively unescape any URL-encoded characters (e.g. %20 -> space)
+            while (rawPath.Contains('%'))
+            {
+                string unescaped = Uri.UnescapeDataString(rawPath);
+                if (unescaped == rawPath) break;
+                rawPath = unescaped;
+            }
+
             // 1. Check if it's already an existing rooted/absolute path
             if (Path.IsPathRooted(rawPath) && File.Exists(rawPath))
             {
                 return rawPath;
             }
 
+            // Clean relative path: strip leading ./ or .\ or / or \
             string cleanRelative = rawPath.Replace('/', '\\');
-            if (cleanRelative.StartsWith(".\\"))
+            while (cleanRelative.StartsWith(".\\") || cleanRelative.StartsWith("\\"))
             {
-                cleanRelative = cleanRelative.Substring(2);
+                if (cleanRelative.StartsWith(".\\")) cleanRelative = cleanRelative.Substring(2);
+                if (cleanRelative.StartsWith("\\")) cleanRelative = cleanRelative.Substring(1);
             }
+
+            string fileName = Path.GetFileName(cleanRelative);
 
             // 2. Resolve relative to active saved document folder
             if (_activeDocument != null && !string.IsNullOrWhiteSpace(_activeDocument.FilePath))
@@ -342,13 +354,19 @@ namespace MarkdownPro
                 {
                     return candidate;
                 }
+
+                // Also check docDir\assets\<fileName>
+                string assetsCandidate = Path.Combine(docDir, "assets", fileName);
+                if (File.Exists(assetsCandidate))
+                {
+                    return assetsCandidate;
+                }
             }
 
             // 3. Resolve from active document's temp assets directory (for untitled docs)
             if (_activeDocument != null)
             {
                 string tempDir = _activeDocument.GetTempAssetsDirectory();
-                string fileName = Path.GetFileName(cleanRelative);
                 string tempCandidate = Path.Combine(tempDir, fileName);
                 if (File.Exists(tempCandidate))
                 {
@@ -369,6 +387,12 @@ namespace MarkdownPro
                 if (File.Exists(workspaceCandidate))
                 {
                     return workspaceCandidate;
+                }
+
+                string workspaceAssetsCandidate = Path.Combine(_currentFolderPath, "assets", fileName);
+                if (File.Exists(workspaceAssetsCandidate))
+                {
+                    return workspaceAssetsCandidate;
                 }
             }
 
@@ -926,6 +950,7 @@ namespace MarkdownPro
 
         private async Task<bool> SaveDocumentInternalAsync(MarkdownDocument doc, bool forceSaveAs)
         {
+            string? previousPath = doc.FilePath;
             string? targetPath = doc.FilePath;
             if (forceSaveAs || string.IsNullOrWhiteSpace(targetPath))
             {
@@ -970,6 +995,34 @@ namespace MarkdownPro
                     catch
                     {
                         // Ignore non-fatal temp directory cleanup errors
+                    }
+                }
+
+                // If saving an existing document to a new folder, copy its existing assets over
+                string? oldDocFolder = !string.IsNullOrWhiteSpace(previousPath) ? Path.GetDirectoryName(previousPath) : null;
+                string newDocFolder = Path.GetDirectoryName(targetPath)!;
+                if (!string.IsNullOrWhiteSpace(oldDocFolder) && !string.Equals(oldDocFolder, newDocFolder, StringComparison.OrdinalIgnoreCase))
+                {
+                    string oldAssets = Path.Combine(oldDocFolder, "assets");
+                    if (Directory.Exists(oldAssets))
+                    {
+                        try
+                        {
+                            string newAssets = Path.Combine(newDocFolder, "assets");
+                            Directory.CreateDirectory(newAssets);
+                            foreach (var f in Directory.GetFiles(oldAssets))
+                            {
+                                string dest = Path.Combine(newAssets, Path.GetFileName(f));
+                                if (!File.Exists(dest))
+                                {
+                                    File.Copy(f, dest);
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Non-fatal
+                        }
                     }
                 }
 
@@ -1415,7 +1468,7 @@ namespace MarkdownPro
 
                 await Task.Run(() => File.Copy(sourceFilePath, targetFilePath, overwrite: true));
 
-                string altText = Path.GetFileNameWithoutExtension(safeName);
+                string altText = Path.GetFileNameWithoutExtension(originalName);
                 string markdownSnippet = $"![{altText}](./assets/{safeName})";
                 InsertTextAtSelection(markdownSnippet);
                 TriggerNotification($"Inserted image: {safeName}", InfoBarSeverity.Success);
@@ -1446,7 +1499,11 @@ namespace MarkdownPro
         private static string SanitizeFileName(string name)
         {
             var invalidChars = Path.GetInvalidFileNameChars();
-            var clean = string.Concat(name.Select(c => invalidChars.Contains(c) ? '_' : c));
+            var clean = string.Concat(name.Select(c => invalidChars.Contains(c) || c == ' ' ? '-' : c));
+            while (clean.Contains("--"))
+            {
+                clean = clean.Replace("--", "-");
+            }
             return string.IsNullOrWhiteSpace(clean) ? $"image_{DateTime.Now:yyyyMMdd_HHmmss}.png" : clean;
         }
 

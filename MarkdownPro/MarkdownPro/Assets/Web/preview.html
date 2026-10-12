@@ -323,10 +323,14 @@
             if (!output) return;
 
             // 1. Convert Markdown to HTML using Marked.js
+            let markdownToParse = currentRawMarkdown || '';
+            // Auto-wrap image URLs containing spaces in < > so Marked.js parses them per CommonMark
+            markdownToParse = markdownToParse.replace(/!\[([^\]]*)\]\(([^<>\n\r]+?\s+[^<>\n\r]+?)\)/g, '![$1](<$2>)');
+
             if (typeof marked !== 'undefined') {
-                output.innerHTML = marked.parse(currentRawMarkdown || '');
+                output.innerHTML = marked.parse(markdownToParse);
             } else {
-                output.textContent = currentRawMarkdown || '';
+                output.textContent = markdownToParse;
             }
 
             // Transform local/relative image sources to virtual stream host
@@ -339,7 +343,11 @@
                     return;
                 }
                 img.setAttribute('data-original-src', src);
-                img.src = 'https://docassets.local/?path=' + encodeURIComponent(src);
+                let decoded = src;
+                try {
+                    decoded = decodeURIComponent(src);
+                } catch (e) {}
+                img.src = 'https://docassets.local/?path=' + encodeURIComponent(decoded);
             });
 
             // 2. Safely capture and transform Mermaid blocks
