@@ -223,15 +223,58 @@ namespace MarkdownPro.Services
         /// </summary>
         public static void LaunchInstallerAndShutdown(string installerPath)
         {
-            var psi = new ProcessStartInfo
+            try
             {
-                FileName = installerPath,
-                Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS",
-                UseShellExecute = true
-            };
+                string targetExePath = Environment.ProcessPath ?? Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Programs",
+                    "Markdown Pro",
+                    "MarkdownPro.exe");
 
-            Process.Start(psi);
-            Environment.Exit(0);
+                // Start installer with /SILENT so the user gets visual feedback with a quick progress bar
+                var psi = new ProcessStartInfo
+                {
+                    FileName = installerPath,
+                    Arguments = "/SILENT /SUPPRESSMSGBOXES /NORESTART",
+                    UseShellExecute = true
+                };
+
+                var installerProcess = Process.Start(psi);
+                if (installerProcess != null)
+                {
+                    int pid = installerProcess.Id;
+                    // Watchdog: waits for the installer to finish, then ensures MarkdownPro is launched
+                    var watchdogPsi = new ProcessStartInfo
+                    {
+                        FileName = "cmd.exe",
+                        Arguments = $"/c powershell -NoProfile -WindowStyle Hidden -Command \"Wait-Process -Id {pid} -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 1200; if (-not (Get-Process -Name 'MarkdownPro' -ErrorAction SilentlyContinue)) {{ if (Test-Path '{targetExePath}') {{ Start-Process -FilePath '{targetExePath}' }} }}\"",
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        WindowStyle = ProcessWindowStyle.Hidden
+                    };
+                    Process.Start(watchdogPsi);
+                }
+            }
+            catch
+            {
+                // Fallback: direct launch if Process.Start failed
+                try
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = installerPath,
+                        UseShellExecute = true
+                    });
+                }
+                catch
+                {
+                    // Ignore
+                }
+            }
+            finally
+            {
+                Environment.Exit(0);
+            }
         }
 
         /// <summary>

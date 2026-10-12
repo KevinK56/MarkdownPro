@@ -108,6 +108,7 @@ Root: HKA; Subkey: "Software\Classes\Applications\{#MyAppExeName}\shell\open\com
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: WizardSilent
 
 [Code]
 const
@@ -148,10 +149,9 @@ begin
     // Ensure any running MarkdownPro.exe instance is closed before replacing/removing files
     Exec('taskkill.exe', '/F /IM MarkdownPro.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
-    // Remove any existing All-Users (HKLM / C:\Program Files\Markdown Pro) or Current-User (HKCU) installation
+    // Remove any legacy All-Users (HKLM / C:\Program Files\Markdown Pro) installation
     // so there is never more than 1 installed instance in Windows Installed Apps
     RemoveUninstallEntryFromRoot(HKLM);
     RemoveUninstallEntryFromRoot(HKLM64);
-    RemoveUninstallEntryFromRoot(HKCU);
   end;
 end;
