@@ -1,5 +1,14 @@
 # Markdown Pro — Editor & Mermaid Previewer (WinUI 3)
 
+<p align="left">
+  <a href="https://github.com/KevinK56/MarkdownPro/releases/latest"><img src="https://img.shields.io/github/v/release/KevinK56/MarkdownPro?style=flat-square&color=0078D4&label=Release" alt="Latest Release" /></a>
+  <a href="https://github.com/KevinK56/MarkdownPro/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=flat-square" alt="License: GPL-3.0" /></a>
+  <img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D4?style=flat-square&logo=windows" alt="Platform: Windows" />
+  <img src="https://img.shields.io/badge/Built%20With-WinUI%203%20%7C%20.NET%208-512BD4?style=flat-square&logo=dotnet" alt=".NET 8 & WinUI 3" />
+  <img src="https://img.shields.io/badge/Mermaid.js-v11.4.0-ff3670?style=flat-square" alt="Mermaid.js v11.4.0" />
+  <img src="https://img.shields.io/badge/Offline-100%25-success?style=flat-square" alt="100% Offline" />
+</p>
+
 **Markdown Pro** is a fast, native **WinUI 3** dual-pane Markdown and **Mermaid.js v11.4.0** authoring environment for Windows 10 and Windows 11. It runs **100% offline** with local rendering, multi-tab document editing, folder explorer navigation, bulk `.md` file merging with automatic PDF page breaks, and one-click PDF/HTML export.
 
 
@@ -17,14 +26,21 @@
 ## ✨ Key Features
 
 - **Native Windows Menu Bar & Multi-View Workspace**:
-  - Clean `File | Tools | Preferences` menu bar with full keyboard shortcut support (`Ctrl+N`, `Ctrl+O`, `Ctrl+Shift+O`, `Ctrl+S`, `Ctrl+Shift+S`, `Ctrl+P`, `Ctrl+B`, `Ctrl+I`).
+  - Clean `File | Tools | Preferences` menu bar with full keyboard shortcut support (`Ctrl+N`, `Ctrl+O`, `Ctrl+Shift+O`, `Ctrl+S`, `Ctrl+Shift+S`, `Ctrl+P`, `Ctrl+B`, `Ctrl+I`, `Ctrl+Shift+I`).
   - Instant view switching between **Editor**, **Split Preview (50/50)**, and **Full Preview**.
+- **Comprehensive Image Support**:
+  - **Insert Image Dialog**: One-click snippet toolbar button (🖼️), `Tools > Insert Image...`, or `Ctrl+Shift+I`.
+  - **Clipboard Screenshot Paste**: Direct `Ctrl+V` pasting of screenshots/bitmaps auto-saved as PNGs in `./assets/` with relative Markdown links.
+  - **Drag-and-Drop**: Drop image files directly from Windows File Explorer into the editor.
+  - **Untitled Document Protection**: Auto-saves images to AppData temporary storage while a document is untitled, and automatically moves them to `<DocFolder>/assets/` when saved.
+  - **Local Virtual Asset Streaming**: Seamless offline rendering of relative, absolute, and temp folder images via WebView2 without CORS or security blocks.
+  - **Portable HTML & PDF Export**: Automatically copies the `assets/` folder alongside exported HTML files and embeds full-resolution images into PDF exports.
 - **100% Offline Markdown & Mermaid v11.4.0 Engine**:
   - Powered by locally bundled `Marked.js v15.0.12` and `Mermaid.js v11.4.0` inside WebView2.
   - Isolated per-diagram syntax error boundaries so a typo in one Mermaid diagram never breaks the rest of your document.
 - **Multi-Tab Dark Editor & Explorer Sidebar**:
   - VS Code-inspired dark code editor (`#1e1e1e`) with synchronized line numbers, dirty indicator (`*`), and tab management.
-  - Collapsible Explorer Sidebar showing **Open Documents** and **Open Folder** file trees with parent/subfolder navigation.
+  - Collapsible Explorer Sidebar showing **Open Documents** and **Open Folder** file trees with parent/subfolder navigation and **Close Folder** support.
 - **Bulk Markdown Import & Merge (`Up to 20 .md Files`)**:
   - Combine up to 20 Markdown files in custom order with automatic `<div style="page-break-after: always;"></div>` dividers for multi-chapter PDF generation.
 - **Interactive Syntax & Mermaid v11.4.0 Reference Guides**:
@@ -76,4 +92,3 @@
 ## 📄 License
 
 Licensed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE).
-# MarkdownPro

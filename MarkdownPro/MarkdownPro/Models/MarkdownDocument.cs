@@ -141,6 +141,11 @@ graph LR
             OnPropertyChanged(nameof(IsDirty));
             OnPropertyChanged(nameof(DisplayTitle));
         }
+        public string GetTempAssetsDirectory()
+        {
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            return Path.Combine(appData, "MarkdownPro", "TempAssets", Id.ToString("N"));
+        }
     }
 }
 

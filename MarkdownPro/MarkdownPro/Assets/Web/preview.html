@@ -329,6 +329,19 @@
                 output.textContent = currentRawMarkdown || '';
             }
 
+            // Transform local/relative image sources to virtual stream host
+            const imgNodes = output.querySelectorAll('img');
+            imgNodes.forEach(img => {
+                const src = img.getAttribute('src');
+                if (!src) return;
+                // Leave remote web URLs and inline data URIs untouched
+                if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
+                    return;
+                }
+                img.setAttribute('data-original-src', src);
+                img.src = 'https://docassets.local/?path=' + encodeURIComponent(src);
+            });
+
             // 2. Safely capture and transform Mermaid blocks
             const codeBlocks = output.querySelectorAll('pre code.language-mermaid, code.language-mermaid');
             const mermaidNodes = [];
@@ -418,7 +431,12 @@
         function getStandaloneHtml(title) {
             const styles = document.getElementById('previewStyles').innerHTML;
             const bodyClass = document.body.classList.contains('dark-preview') ? ' class="dark-preview"' : '';
-            const content = output ? output.innerHTML : '';
+            const clone = output ? output.cloneNode(true) : document.createElement('div');
+            clone.querySelectorAll('img[data-original-src]').forEach(img => {
+                img.setAttribute('src', img.getAttribute('data-original-src'));
+                img.removeAttribute('data-original-src');
+            });
+            const content = clone.innerHTML;
             return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8" />\n<title>${title || 'Markdown Pro Document'}</title>\n<style>${styles}</style>\n</head>\n<body${bodyClass}>\n<div id="renderedOutput">${content}</div>\n</body>\n</html>`;
         }
 

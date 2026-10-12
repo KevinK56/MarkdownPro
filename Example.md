@@ -69,7 +69,9 @@ namespace ClassExample
 }
 ```
 
+## 4. Image Support
+Markdown Pro supports images from local `./assets/` folders, absolute file paths, and web URLs:
 
-
+![Markdown Pro Logo](https://raw.githubusercontent.com/KevinK56/MarkdownPro/master/MarkdownPro/MarkdownPro%20(Package)/Images/Square150x150Logo.scale-200.png)
 
 > Click **File > Export** to download this file as a PDF or Markdown document..

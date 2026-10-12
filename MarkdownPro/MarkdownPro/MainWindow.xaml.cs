@@ -18,6 +18,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.Web.WebView2.Core;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage.Pickers;
+using Windows.Storage.Streams;
 using Windows.System;
 
 namespace MarkdownPro
@@ -103,6 +104,11 @@ namespace MarkdownPro
             if (!string.IsNullOrWhiteSpace(_session.LastFolderPath) && Directory.Exists(_session.LastFolderPath))
             {
                 LoadFolderIntoSidebar(_session.LastFolderPath, setAsRoot: true);
+            }
+            else
+            {
+                SidebarCloseFolderBtn.Visibility = Visibility.Collapsed;
+                MenuCloseFolder.IsEnabled = false;
             }
 
             // Restore previously open files from session
@@ -190,6 +196,9 @@ namespace MarkdownPro
                 core.Settings.AreDevToolsEnabled = false;
                 core.Settings.IsStatusBarEnabled = false;
 
+                core.AddWebResourceRequestedFilter("https://docassets.local/*", CoreWebView2WebResourceContext.All);
+                core.WebResourceRequested += CoreWebView2_WebResourceRequested;
+
                 core.WebMessageReceived += CoreWebView2_WebMessageReceived;
                 core.Navigate("https://appassets.local/preview.html");
             }
@@ -234,6 +243,136 @@ namespace MarkdownPro
             {
                 // Ignore malformed messages
             }
+        }
+
+        private void CoreWebView2_WebResourceRequested(CoreWebView2 sender, CoreWebView2WebResourceRequestedEventArgs args)
+        {
+            try
+            {
+                var requestUri = new Uri(args.Request.Uri);
+                string query = requestUri.Query;
+                if (string.IsNullOrEmpty(query))
+                {
+                    return;
+                }
+
+                int pathIndex = query.IndexOf("path=", StringComparison.OrdinalIgnoreCase);
+                if (pathIndex < 0)
+                {
+                    return;
+                }
+
+                string encodedPath = query.Substring(pathIndex + 5);
+                int ampIndex = encodedPath.IndexOf('&');
+                if (ampIndex >= 0)
+                {
+                    encodedPath = encodedPath.Substring(0, ampIndex);
+                }
+
+                string rawPath = Uri.UnescapeDataString(encodedPath);
+                string? resolvedFilePath = ResolveImageFilePath(rawPath);
+
+                if (!string.IsNullOrEmpty(resolvedFilePath) && File.Exists(resolvedFilePath))
+                {
+                    string ext = Path.GetExtension(resolvedFilePath).ToLowerInvariant();
+                    string contentType = ext switch
+                    {
+                        ".png" => "image/png",
+                        ".jpg" or ".jpeg" => "image/jpeg",
+                        ".gif" => "image/gif",
+                        ".svg" => "image/svg+xml",
+                        ".webp" => "image/webp",
+                        ".bmp" => "image/bmp",
+                        ".ico" => "image/x-icon",
+                        _ => "application/octet-stream"
+                    };
+
+                    byte[] fileBytes = File.ReadAllBytes(resolvedFilePath);
+                    var memStream = new MemoryStream(fileBytes);
+                    var randomAccessStream = memStream.AsRandomAccessStream();
+                    var response = sender.Environment.CreateWebResourceResponse(
+                        randomAccessStream,
+                        200,
+                        "OK",
+                        $"Content-Type: {contentType}\r\nAccess-Control-Allow-Origin: *");
+                    args.Response = response;
+                }
+            }
+            catch
+            {
+                // Silently ignore resource resolution exceptions
+            }
+        }
+
+        private string? ResolveImageFilePath(string rawPath)
+        {
+            if (string.IsNullOrWhiteSpace(rawPath))
+            {
+                return null;
+            }
+
+            // Clean file protocol prefixes if present
+            if (rawPath.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+            {
+                rawPath = rawPath.Substring(8).Replace('/', '\\');
+            }
+            else if (rawPath.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
+            {
+                rawPath = rawPath.Substring(7).Replace('/', '\\');
+            }
+
+            // 1. Check if it's already an existing rooted/absolute path
+            if (Path.IsPathRooted(rawPath) && File.Exists(rawPath))
+            {
+                return rawPath;
+            }
+
+            string cleanRelative = rawPath.Replace('/', '\\');
+            if (cleanRelative.StartsWith(".\\"))
+            {
+                cleanRelative = cleanRelative.Substring(2);
+            }
+
+            // 2. Resolve relative to active saved document folder
+            if (_activeDocument != null && !string.IsNullOrWhiteSpace(_activeDocument.FilePath))
+            {
+                string docDir = Path.GetDirectoryName(_activeDocument.FilePath)!;
+                string candidate = Path.GetFullPath(Path.Combine(docDir, cleanRelative));
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            // 3. Resolve from active document's temp assets directory (for untitled docs)
+            if (_activeDocument != null)
+            {
+                string tempDir = _activeDocument.GetTempAssetsDirectory();
+                string fileName = Path.GetFileName(cleanRelative);
+                string tempCandidate = Path.Combine(tempDir, fileName);
+                if (File.Exists(tempCandidate))
+                {
+                    return tempCandidate;
+                }
+
+                string subTempCandidate = Path.GetFullPath(Path.Combine(tempDir, cleanRelative));
+                if (File.Exists(subTempCandidate))
+                {
+                    return subTempCandidate;
+                }
+            }
+
+            // 4. Resolve relative to opened workspace folder
+            if (!string.IsNullOrWhiteSpace(_currentFolderPath) && Directory.Exists(_currentFolderPath))
+            {
+                string workspaceCandidate = Path.GetFullPath(Path.Combine(_currentFolderPath, cleanRelative));
+                if (File.Exists(workspaceCandidate))
+                {
+                    return workspaceCandidate;
+                }
+            }
+
+            return null;
         }
 
         #region Default .md Application Prompt & Registration
@@ -676,6 +815,8 @@ namespace MarkdownPro
 
             EmptyFolderPlaceholder.Visibility = Visibility.Collapsed;
             FolderFilesListView.Visibility = Visibility.Visible;
+            SidebarCloseFolderBtn.Visibility = Visibility.Visible;
+            MenuCloseFolder.IsEnabled = true;
         }
 
         private void FolderFilesListView_ItemClick(object sender, ItemClickEventArgs e)
@@ -766,6 +907,23 @@ namespace MarkdownPro
             }
         }
 
+        private void CloseFolder_Click(object sender, RoutedEventArgs e)
+        {
+            _currentFolderPath = null;
+            _rootOpenedFolderPath = null;
+            _folderNodes.Clear();
+            CurrentFolderNameText.Text = "No folder opened";
+            ToolTipService.SetToolTip(CurrentFolderNameText, "No folder opened");
+            EmptyFolderPlaceholder.Visibility = Visibility.Visible;
+            FolderFilesListView.Visibility = Visibility.Collapsed;
+            SidebarCloseFolderBtn.Visibility = Visibility.Collapsed;
+            MenuCloseFolder.IsEnabled = false;
+
+            _session.LastFolderPath = null;
+            SaveSession();
+            TriggerNotification("Folder closed.", InfoBarSeverity.Informational);
+        }
+
         private async Task<bool> SaveDocumentInternalAsync(MarkdownDocument doc, bool forceSaveAs)
         {
             string? targetPath = doc.FilePath;
@@ -790,6 +948,31 @@ namespace MarkdownPro
             try
             {
                 await File.WriteAllTextAsync(targetPath, doc.Content, Encoding.UTF8);
+
+                // Migrate any temporary assets created while the document was untitled
+                string tempAssetsDir = doc.GetTempAssetsDirectory();
+                if (Directory.Exists(tempAssetsDir))
+                {
+                    try
+                    {
+                        string docFolder = Path.GetDirectoryName(targetPath)!;
+                        string assetsDir = Path.Combine(docFolder, "assets");
+                        Directory.CreateDirectory(assetsDir);
+
+                        foreach (var tempFile in Directory.GetFiles(tempAssetsDir))
+                        {
+                            string destFile = Path.Combine(assetsDir, Path.GetFileName(tempFile));
+                            File.Copy(tempFile, destFile, overwrite: true);
+                        }
+
+                        Directory.Delete(tempAssetsDir, recursive: true);
+                    }
+                    catch
+                    {
+                        // Ignore non-fatal temp directory cleanup errors
+                    }
+                }
+
                 doc.MarkSaved(targetPath);
                 UpdateActiveDocumentHeaderAndStatus();
                 if (!string.IsNullOrWhiteSpace(_currentFolderPath) && Directory.Exists(_currentFolderPath))
@@ -1171,6 +1354,212 @@ namespace MarkdownPro
         private void InsertPageBreakSnippet_Click(object sender, RoutedEventArgs e)
             => InsertTextAtSelection("\n<div style=\"page-break-after: always;\"></div>\n");
 
+        private async void InsertImage_Click(object sender, RoutedEventArgs e)
+        {
+            await PickAndInsertImageAsync();
+        }
+
+        private void OnInsertImageAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+        {
+            args.Handled = true;
+            _ = PickAndInsertImageAsync();
+        }
+
+        private async Task PickAndInsertImageAsync()
+        {
+            var picker = new FileOpenPicker();
+            InitializePickerWithWindow(picker);
+            picker.ViewMode = PickerViewMode.Thumbnail;
+            picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
+            picker.FileTypeFilter.Add(".png");
+            picker.FileTypeFilter.Add(".jpg");
+            picker.FileTypeFilter.Add(".jpeg");
+            picker.FileTypeFilter.Add(".gif");
+            picker.FileTypeFilter.Add(".svg");
+            picker.FileTypeFilter.Add(".webp");
+            picker.FileTypeFilter.Add(".bmp");
+            picker.FileTypeFilter.Add(".ico");
+
+            var file = await picker.PickSingleFileAsync();
+            if (file == null)
+            {
+                return;
+            }
+
+            await InsertImageFileIntoDocumentAsync(file.Path);
+        }
+
+        private async Task InsertImageFileIntoDocumentAsync(string sourceFilePath)
+        {
+            try
+            {
+                if (!File.Exists(sourceFilePath))
+                {
+                    return;
+                }
+
+                string targetDir = GetActiveDocumentAssetsDirectory();
+                Directory.CreateDirectory(targetDir);
+
+                string originalName = Path.GetFileName(sourceFilePath);
+                string safeName = SanitizeFileName(originalName);
+                string targetFilePath = Path.Combine(targetDir, safeName);
+
+                if (File.Exists(targetFilePath))
+                {
+                    string nameWithoutExt = Path.GetFileNameWithoutExtension(safeName);
+                    string ext = Path.GetExtension(safeName);
+                    safeName = $"{nameWithoutExt}_{DateTime.Now:yyyyMMdd_HHmmss}{ext}";
+                    targetFilePath = Path.Combine(targetDir, safeName);
+                }
+
+                await Task.Run(() => File.Copy(sourceFilePath, targetFilePath, overwrite: true));
+
+                string altText = Path.GetFileNameWithoutExtension(safeName);
+                string markdownSnippet = $"![{altText}](./assets/{safeName})";
+                InsertTextAtSelection(markdownSnippet);
+                TriggerNotification($"Inserted image: {safeName}", InfoBarSeverity.Success);
+            }
+            catch (Exception ex)
+            {
+                TriggerNotification($"Failed to insert image: {ex.Message}", InfoBarSeverity.Error);
+            }
+        }
+
+        private string GetActiveDocumentAssetsDirectory()
+        {
+            if (_activeDocument != null && !string.IsNullOrWhiteSpace(_activeDocument.FilePath))
+            {
+                string docDir = Path.GetDirectoryName(_activeDocument.FilePath)!;
+                return Path.Combine(docDir, "assets");
+            }
+
+            if (_activeDocument != null)
+            {
+                return _activeDocument.GetTempAssetsDirectory();
+            }
+
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            return Path.Combine(appData, "MarkdownPro", "TempAssets", "general");
+        }
+
+        private static string SanitizeFileName(string name)
+        {
+            var invalidChars = Path.GetInvalidFileNameChars();
+            var clean = string.Concat(name.Select(c => invalidChars.Contains(c) ? '_' : c));
+            return string.IsNullOrWhiteSpace(clean) ? $"image_{DateTime.Now:yyyyMMdd_HHmmss}.png" : clean;
+        }
+
+        private static bool IsImageExtension(string? ext)
+        {
+            if (string.IsNullOrWhiteSpace(ext))
+            {
+                return false;
+            }
+            string[] allowed = { ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".bmp", ".ico" };
+            return allowed.Contains(ext.ToLowerInvariant());
+        }
+
+        private async void EditorTextBox_Paste(object sender, TextControlPasteEventArgs e)
+        {
+            try
+            {
+                var dataPackage = Clipboard.GetContent();
+                if (dataPackage == null)
+                {
+                    return;
+                }
+
+                if (dataPackage.Contains(StandardDataFormats.Bitmap))
+                {
+                    e.Handled = true;
+                    var bitmapStreamRef = await dataPackage.GetBitmapAsync();
+                    if (bitmapStreamRef != null)
+                    {
+                        using var streamWithContent = await bitmapStreamRef.OpenReadAsync();
+                        using var netStream = streamWithContent.AsStreamForRead();
+
+                        string targetDir = GetActiveDocumentAssetsDirectory();
+                        Directory.CreateDirectory(targetDir);
+
+                        string fileName = $"image-{DateTime.Now:yyyyMMdd-HHmmss}.png";
+                        string targetFilePath = Path.Combine(targetDir, fileName);
+
+                        using (var fileStream = File.Create(targetFilePath))
+                        {
+                            await netStream.CopyToAsync(fileStream);
+                        }
+
+                        string markdownSnippet = $"![image](./assets/{fileName})";
+                        InsertTextAtSelection(markdownSnippet);
+                        TriggerNotification("Pasted image screenshot into document.", InfoBarSeverity.Success);
+                        return;
+                    }
+                }
+
+                if (dataPackage.Contains(StandardDataFormats.StorageItems))
+                {
+                    var items = await dataPackage.GetStorageItemsAsync();
+                    var imageFiles = items.OfType<Windows.Storage.StorageFile>()
+                        .Where(f => IsImageExtension(Path.GetExtension(f.Name)))
+                        .ToList();
+
+                    if (imageFiles.Count > 0)
+                    {
+                        e.Handled = true;
+                        foreach (var imgFile in imageFiles)
+                        {
+                            await InsertImageFileIntoDocumentAsync(imgFile.Path);
+                        }
+                        return;
+                    }
+                }
+            }
+            catch
+            {
+                // Let normal paste behavior proceed if inspecting image data fails
+            }
+        }
+
+        private void EditorTextBox_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.DataView.Contains(StandardDataFormats.StorageItems))
+            {
+                e.AcceptedOperation = DataPackageOperation.Copy;
+                e.DragUIOverride.Caption = "Insert image";
+                e.DragUIOverride.IsCaptionVisible = true;
+            }
+        }
+
+        private async void EditorTextBox_Drop(object sender, DragEventArgs e)
+        {
+            if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+            {
+                return;
+            }
+
+            var deferral = e.GetDeferral();
+            try
+            {
+                var items = await e.DataView.GetStorageItemsAsync();
+                foreach (var item in items)
+                {
+                    if (item is Windows.Storage.StorageFile file && IsImageExtension(Path.GetExtension(file.Name)))
+                    {
+                        await InsertImageFileIntoDocumentAsync(file.Path);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                TriggerNotification($"Drag and drop error: {ex.Message}", InfoBarSeverity.Warning);
+            }
+            finally
+            {
+                deferral.Complete();
+            }
+        }
+
         private async void ClearEditor_Click(object sender, RoutedEventArgs e)
         {
             if (RootGrid.XamlRoot == null)
@@ -1468,6 +1857,42 @@ namespace MarkdownPro
             }
 
             await File.WriteAllTextAsync(file.Path, htmlToSave, Encoding.UTF8);
+
+            // Copy assets folder alongside the exported HTML file if assets exist
+            try
+            {
+                string exportDir = Path.GetDirectoryName(file.Path)!;
+                string exportAssetsDir = Path.Combine(exportDir, "assets");
+
+                string? docDir = _activeDocument?.FilePath != null ? Path.GetDirectoryName(_activeDocument.FilePath) : null;
+                string? srcAssetsDir = docDir != null ? Path.Combine(docDir, "assets") : null;
+
+                if (srcAssetsDir != null && Directory.Exists(srcAssetsDir) && !string.Equals(srcAssetsDir, exportAssetsDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    Directory.CreateDirectory(exportAssetsDir);
+                    foreach (var imgFile in Directory.GetFiles(srcAssetsDir))
+                    {
+                        File.Copy(imgFile, Path.Combine(exportAssetsDir, Path.GetFileName(imgFile)), overwrite: true);
+                    }
+                }
+                else if (_activeDocument != null)
+                {
+                    string tempAssetsDir = _activeDocument.GetTempAssetsDirectory();
+                    if (Directory.Exists(tempAssetsDir) && Directory.GetFiles(tempAssetsDir).Length > 0)
+                    {
+                        Directory.CreateDirectory(exportAssetsDir);
+                        foreach (var imgFile in Directory.GetFiles(tempAssetsDir))
+                        {
+                            File.Copy(imgFile, Path.Combine(exportAssetsDir, Path.GetFileName(imgFile)), overwrite: true);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Non-fatal asset copy failure
+            }
+
             TriggerNotification("Exported as HTML", InfoBarSeverity.Success);
         }
 

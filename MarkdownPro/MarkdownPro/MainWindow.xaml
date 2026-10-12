@@ -24,6 +24,7 @@
             <KeyboardAccelerator Key="P" Modifiers="Control" Invoked="OnPrintAccelerator" />
             <KeyboardAccelerator Key="B" Modifiers="Control" Invoked="OnBoldAccelerator" />
             <KeyboardAccelerator Key="I" Modifiers="Control" Invoked="OnItalicAccelerator" />
+            <KeyboardAccelerator Key="I" Modifiers="Control,Shift" Invoked="OnInsertImageAccelerator" />
         </Grid.KeyboardAccelerators>
 
         <Grid.RowDefinitions>
@@ -62,6 +63,11 @@
                         <MenuFlyoutItem Text="Open Folder..." Click="OpenFolder_Click" KeyboardAcceleratorTextOverride="Ctrl+Shift+O">
                             <MenuFlyoutItem.Icon>
                                 <FontIcon Glyph="&#xE8B7;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem x:Name="MenuCloseFolder" Text="Close Folder" Click="CloseFolder_Click">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE8BB;" />
                             </MenuFlyoutItem.Icon>
                         </MenuFlyoutItem>
                         <MenuFlyoutSeparator />
@@ -130,6 +136,11 @@
                                 <FontIcon Glyph="&#xE9D9;" />
                             </MenuFlyoutItem.Icon>
                         </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Insert Image..." Click="InsertImage_Click" KeyboardAcceleratorTextOverride="Ctrl+Shift+I">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xEB9F;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
                         <MenuFlyoutSeparator />
                         <MenuFlyoutSubItem Text="Insert Snippet">
                             <MenuFlyoutSubItem.Icon>
@@ -137,6 +148,7 @@
                             </MenuFlyoutSubItem.Icon>
                             <MenuFlyoutItem Text="Bold (**text**)" Click="InsertBold_Click" KeyboardAcceleratorTextOverride="Ctrl+B" />
                             <MenuFlyoutItem Text="Italic (*text*)" Click="InsertItalic_Click" KeyboardAcceleratorTextOverride="Ctrl+I" />
+                            <MenuFlyoutItem Text="Image (![alt](path))..." Click="InsertImage_Click" KeyboardAcceleratorTextOverride="Ctrl+Shift+I" />
                             <MenuFlyoutSeparator />
                             <MenuFlyoutItem Text="Markdown Table" Click="InsertTableSnippet_Click" />
                             <MenuFlyoutItem Text="Mermaid Diagram" Click="InsertMermaidSnippet_Click" />
@@ -439,6 +451,15 @@
                                         BorderThickness="0">
                                     <FontIcon Glyph="&#xE8B7;" FontSize="12" />
                                 </Button>
+                                <Button x:Name="SidebarCloseFolderBtn"
+                                        Click="CloseFolder_Click"
+                                        ToolTipService.ToolTip="Close Folder"
+                                        Padding="5,3"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Visibility="Collapsed">
+                                    <FontIcon Glyph="&#xE8BB;" FontSize="12" />
+                                </Button>
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -517,24 +538,76 @@
                     <Border Grid.Row="1"
                             Background="#252526"
                             CornerRadius="6,6,0,0"
-                            Padding="12,6"
+                            Padding="12,4"
                             BorderBrush="#333333"
                             BorderThickness="1,1,1,0">
-                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <TextBlock Text="EDITOR"
-                                       Foreground="#D4D4D4"
-                                       FontFamily="Cascadia Mono, JetBrains Mono, Consolas, monospace"
-                                       FontSize="11"
-                                       FontWeight="Bold"
-                                       VerticalAlignment="Center" />
-                            <TextBlock x:Name="ActiveDocHeaderPathText"
-                                       Text="Welcome.md"
-                                       Foreground="#858585"
-                                       FontFamily="Cascadia Mono, Consolas, monospace"
-                                       FontSize="11"
-                                       TextTrimming="CharacterEllipsis"
-                                       VerticalAlignment="Center" />
-                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <TextBlock Text="EDITOR"
+                                           Foreground="#D4D4D4"
+                                           FontFamily="Cascadia Mono, JetBrains Mono, Consolas, monospace"
+                                           FontSize="11"
+                                           FontWeight="Bold"
+                                           VerticalAlignment="Center" />
+                                <TextBlock x:Name="ActiveDocHeaderPathText"
+                                           Text="Welcome.md"
+                                           Foreground="#858585"
+                                           FontFamily="Cascadia Mono, Consolas, monospace"
+                                           FontSize="11"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <!-- Snippet Formatting Toolbar -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                                <Button Click="InsertBold_Click"
+                                        ToolTipService.ToolTip="Bold (**text**) - Ctrl+B"
+                                        Padding="6,3"
+                                        Background="Transparent"
+                                        BorderThickness="0">
+                                    <TextBlock Text="B" FontWeight="Bold" Foreground="#D4D4D4" FontSize="11" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                </Button>
+                                <Button Click="InsertItalic_Click"
+                                        ToolTipService.ToolTip="Italic (*text*) - Ctrl+I"
+                                        Padding="6,3"
+                                        Background="Transparent"
+                                        BorderThickness="0">
+                                    <TextBlock Text="I" FontStyle="Italic" Foreground="#D4D4D4" FontSize="11" FontFamily="Cascadia Mono, Consolas, monospace" />
+                                </Button>
+                                <Button Click="InsertImage_Click"
+                                        ToolTipService.ToolTip="Insert Image (Ctrl+Shift+I)"
+                                        Padding="6,3"
+                                        Background="Transparent"
+                                        BorderThickness="0">
+                                    <FontIcon Glyph="&#xEB9F;" Foreground="#D4D4D4" FontSize="11" />
+                                </Button>
+                                <Button Click="InsertTableSnippet_Click"
+                                        ToolTipService.ToolTip="Markdown Table"
+                                        Padding="6,3"
+                                        Background="Transparent"
+                                        BorderThickness="0">
+                                    <FontIcon Glyph="&#xE943;" Foreground="#D4D4D4" FontSize="11" />
+                                </Button>
+                                <Button Click="InsertMermaidSnippet_Click"
+                                        ToolTipService.ToolTip="Mermaid Diagram"
+                                        Padding="6,3"
+                                        Background="Transparent"
+                                        BorderThickness="0">
+                                    <FontIcon Glyph="&#xE9D9;" Foreground="#D4D4D4" FontSize="11" />
+                                </Button>
+                                <Button Click="InsertPageBreakSnippet_Click"
+                                        ToolTipService.ToolTip="PDF Page Break Divider"
+                                        Padding="6,3"
+                                        Background="Transparent"
+                                        BorderThickness="0">
+                                    <FontIcon Glyph="&#xE7BC;" Foreground="#D4D4D4" FontSize="11" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
                     </Border>
 
                     <!-- Dark Code Editor Box (#1e1e1e) with Line Numbers Gutter -->
@@ -582,6 +655,10 @@
                                      FontFamily="Cascadia Mono, JetBrains Mono, Fira Code, Consolas, monospace"
                                      FontSize="14"
                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     AllowDrop="True"
+                                     DragOver="EditorTextBox_DragOver"
+                                     Drop="EditorTextBox_Drop"
+                                     Paste="EditorTextBox_Paste"
                                      TextChanged="EditorTextBox_TextChanged"
                                      SelectionChanged="EditorTextBox_SelectionChanged"
                                      KeyDown="EditorTextBox_KeyDown"
