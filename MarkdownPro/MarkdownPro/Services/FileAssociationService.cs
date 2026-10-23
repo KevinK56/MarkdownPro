@@ -54,6 +54,61 @@ namespace MarkdownPro.Services
             return false;
         }
 
+        public static bool EnsureShellNewRegistered(bool notifyShell = false)
+        {
+            try
+            {
+                using (var mdKey = Registry.CurrentUser.CreateSubKey(@"Software\Classes\.md"))
+                {
+                    if (mdKey != null)
+                    {
+                        using var shellNewExtKey = mdKey.CreateSubKey("ShellNew");
+                        shellNewExtKey?.SetValue("NullFile", "");
+                        shellNewExtKey?.SetValue("ItemName", "Markdown Document");
+
+                        using var shellNewProgIdKey = mdKey.CreateSubKey($@"{ProgId}\ShellNew");
+                        shellNewProgIdKey?.SetValue("NullFile", "");
+                        shellNewProgIdKey?.SetValue("ItemName", "Markdown Document");
+                    }
+                }
+
+                using (var progKey = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{ProgId}"))
+                {
+                    if (progKey != null)
+                    {
+                        if (progKey.GetValue("") == null)
+                        {
+                            progKey.SetValue("", "Markdown Document (Markdown Pro)");
+                        }
+                        progKey.SetValue("FriendlyTypeName", "Markdown Document");
+
+                        using var shellNewKey = progKey.CreateSubKey("ShellNew");
+                        shellNewKey?.SetValue("NullFile", "");
+                        shellNewKey?.SetValue("ItemName", "Markdown Document");
+                    }
+                }
+
+                if (notifyShell)
+                {
+                    try
+                    {
+                        Registry.CurrentUser.DeleteSubKeyTree(@"Software\Microsoft\Windows\CurrentVersion\Explorer\Discardable\PostSetup\ShellNew", throwOnMissingSubKey: false);
+                    }
+                    catch
+                    {
+                    }
+
+                    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero);
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public static async Task<bool> RegisterFileAssociationsAsync(bool openWindowsDefaultAppsSettings = true)
         {
             try
@@ -80,6 +135,12 @@ namespace MarkdownPro.Services
                         using (var cmdKey = progKey?.CreateSubKey(@"shell\open\command"))
                         {
                             cmdKey?.SetValue("", $"\"{exePath}\" \"%1\"");
+                        }
+
+                        using (var shellNewKey = progKey?.CreateSubKey("ShellNew"))
+                        {
+                            shellNewKey?.SetValue("NullFile", "");
+                            shellNewKey?.SetValue("ItemName", "Markdown Document");
                         }
                     }
 
@@ -111,6 +172,26 @@ namespace MarkdownPro.Services
 
                         using var openWithKey = extKey?.CreateSubKey("OpenWithProgids");
                         openWithKey?.SetValue(ProgId, Array.Empty<byte>(), RegistryValueKind.None);
+
+                        if (ext.Equals(".md", StringComparison.OrdinalIgnoreCase))
+                        {
+                            using var shellNewExtKey = extKey?.CreateSubKey("ShellNew");
+                            shellNewExtKey?.SetValue("NullFile", "");
+                            shellNewExtKey?.SetValue("ItemName", "Markdown Document");
+
+                            using var shellNewProgIdKey = extKey?.CreateSubKey($@"{ProgId}\ShellNew");
+                            shellNewProgIdKey?.SetValue("NullFile", "");
+                            shellNewProgIdKey?.SetValue("ItemName", "Markdown Document");
+                        }
+                    }
+
+                    // 4. Invalidate Explorer's Discardable ShellNew cache so Explorer rebuilds the New menu immediately
+                    try
+                    {
+                        Registry.CurrentUser.DeleteSubKeyTree(@"Software\Microsoft\Windows\CurrentVersion\Explorer\Discardable\PostSetup\ShellNew", throwOnMissingSubKey: false);
+                    }
+                    catch
+                    {
                     }
 
                     SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero);

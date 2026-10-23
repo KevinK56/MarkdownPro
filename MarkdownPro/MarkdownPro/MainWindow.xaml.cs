@@ -195,6 +195,9 @@ namespace MarkdownPro
             {
                 _ = CheckForUpdatesInBackgroundAsync();
             }
+
+            // Ensure "New -> Markdown Document" Windows Explorer context menu entry is registered
+            _ = Task.Run(() => FileAssociationService.EnsureShellNewRegistered(notifyShell: false));
         }
 
         private async Task InitializeWebViewAsync()

@@ -90,10 +90,22 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 [Registry]
 ; Register ProgId for Markdown Pro Document
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}"; ValueType: string; ValueName: ""; ValueData: "{#MyAppAssocName}"; Flags: uninsdeletekey; Tasks: associate_md
+Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}"; ValueType: string; ValueName: "FriendlyTypeName"; ValueData: "Markdown Document"; Flags: uninsdeletekey; Tasks: associate_md
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName},0"; Tasks: associate_md
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Tasks: associate_md
 
+; Register ShellNew for creating new Markdown files via Explorer context menu
+Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}\ShellNew"; ValueType: string; ValueName: "NullFile"; ValueData: ""; Flags: uninsdeletekey; Tasks: associate_md
+Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}\ShellNew"; ValueType: string; ValueName: "ItemName"; ValueData: "Markdown Document"; Flags: uninsdeletekey; Tasks: associate_md
+Root: HKA; Subkey: "Software\Classes\.md\ShellNew"; ValueType: string; ValueName: "NullFile"; ValueData: ""; Flags: uninsdeletekey; Tasks: associate_md
+Root: HKA; Subkey: "Software\Classes\.md\ShellNew"; ValueType: string; ValueName: "ItemName"; ValueData: "Markdown Document"; Flags: uninsdeletekey; Tasks: associate_md
+Root: HKA; Subkey: "Software\Classes\.md\{#MyAppAssocKey}\ShellNew"; ValueType: string; ValueName: "NullFile"; ValueData: ""; Flags: uninsdeletekey; Tasks: associate_md
+Root: HKA; Subkey: "Software\Classes\.md\{#MyAppAssocKey}\ShellNew"; ValueType: string; ValueName: "ItemName"; ValueData: "Markdown Document"; Flags: uninsdeletekey; Tasks: associate_md
+
 ; Register supported Markdown extensions in OpenWithProgids
+Root: HKA; Subkey: "Software\Classes\.md"; ValueType: string; ValueName: ""; ValueData: "{#MyAppAssocKey}"; Flags: uninsdeletevalue; Tasks: associate_md
+Root: HKA; Subkey: "Software\Classes\.md"; ValueType: string; ValueName: "Content Type"; ValueData: "text/markdown"; Flags: uninsdeletevalue; Tasks: associate_md
+Root: HKA; Subkey: "Software\Classes\.md"; ValueType: string; ValueName: "PerceivedType"; ValueData: "text"; Flags: uninsdeletevalue; Tasks: associate_md
 Root: HKA; Subkey: "Software\Classes\.md\OpenWithProgids"; ValueType: string; ValueName: "{#MyAppAssocKey}"; ValueData: ""; Flags: uninsdeletevalue; Tasks: associate_md
 Root: HKA; Subkey: "Software\Classes\.markdown\OpenWithProgids"; ValueType: string; ValueName: "{#MyAppAssocKey}"; ValueData: ""; Flags: uninsdeletevalue; Tasks: associate_md
 Root: HKA; Subkey: "Software\Classes\.mdown\OpenWithProgids"; ValueType: string; ValueName: "{#MyAppAssocKey}"; ValueData: ""; Flags: uninsdeletevalue; Tasks: associate_md
@@ -153,5 +165,11 @@ begin
     // so there is never more than 1 installed instance in Windows Installed Apps
     RemoveUninstallEntryFromRoot(HKLM);
     RemoveUninstallEntryFromRoot(HKLM64);
+  end;
+
+  if CurStep = ssPostInstall then
+  begin
+    // Invalidate Windows Explorer ShellNew cache so "New -> Markdown Document" appears immediately
+    RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Explorer\Discardable\PostSetup\ShellNew');
   end;
 end;
